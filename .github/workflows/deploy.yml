@@ -1,0 +1,118 @@
+name: Deploy app
+
+# Reusable workflow. Called from app repos after their build job pushes the image.
+# Writes /opt/vibes/<app>/{compose.yml,.env}, docker compose pull && up -d, health poll.
+
+on:
+  workflow_call:
+    inputs:
+      app:
+        required: true
+        type: string
+        description: "App slug. Must match apps/<app>/compose.yml."
+      image_tag:
+        required: true
+        type: string
+        description: "Image tag to deploy (typically commit sha)."
+    secrets:
+      DEPLOY_HOST:        { required: true }
+      DEPLOY_SSH_KEY:     { required: true }
+      DEPLOY_HOST_KEY:    { required: true }
+      APP_HOSTNAME:       { required: true }
+      APP_ADMIN_PASSWORD: { required: false }
+
+concurrency:
+  group: deploy-${{ inputs.app }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Validate compose exists
+        run: test -f apps/${{ inputs.app }}/compose.yml
+
+      - name: Setup SSH
+        env:
+          DEPLOY_SSH_KEY:  ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_HOST_KEY: ${{ secrets.DEPLOY_HOST_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$DEPLOY_HOST_KEY" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Validate DEPLOY_HOST
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+        # DEPLOY_HOST doubles as PUBLIC_IP — must be literal IPv4 for pion.
+        run: |
+          if ! printf '%s' "$DEPLOY_HOST" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "ERROR: DEPLOY_HOST must be a literal IPv4 (got: $DEPLOY_HOST)" >&2
+            exit 1
+          fi
+
+      - name: Sync compose
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          APP:         ${{ inputs.app }}
+        run: |
+          ssh "deploy@$DEPLOY_HOST" "mkdir -p /opt/vibes/$APP"
+          scp "apps/$APP/compose.yml" "deploy@$DEPLOY_HOST:/opt/vibes/$APP/compose.yml"
+
+      - name: Write .env on host
+        env:
+          DEPLOY_HOST:        ${{ secrets.DEPLOY_HOST }}
+          APP:                ${{ inputs.app }}
+          IMAGE_TAG:          ${{ inputs.image_tag }}
+          APP_HOSTNAME:       ${{ secrets.APP_HOSTNAME }}
+          APP_ADMIN_PASSWORD: ${{ secrets.APP_ADMIN_PASSWORD }}
+        # Build .env locally (umask hides intermediates), scp, then 600 on host.
+        run: |
+          umask 077
+          : > .env.deploy
+          printf 'IMAGE_TAG=%s\n'    "$IMAGE_TAG"           >> .env.deploy
+          printf 'APP_HOSTNAME=%s\n' "$APP_HOSTNAME"        >> .env.deploy
+          printf 'PUBLIC_IP=%s\n'    "$DEPLOY_HOST"         >> .env.deploy
+          if [ -n "$APP_ADMIN_PASSWORD" ]; then
+            printf 'APP_ADMIN_PASSWORD=%s\n' "$APP_ADMIN_PASSWORD" >> .env.deploy
+          fi
+          scp .env.deploy "deploy@$DEPLOY_HOST:/opt/vibes/$APP/.env"
+          ssh "deploy@$DEPLOY_HOST" "chmod 600 /opt/vibes/$APP/.env"
+          rm -f .env.deploy
+
+      - name: Pull and restart
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          APP:         ${{ inputs.app }}
+        run: |
+          ssh "deploy@$DEPLOY_HOST" "cd /opt/vibes/$APP && \
+            docker compose pull && \
+            docker compose up -d --remove-orphans && \
+            docker image prune -af"
+
+      - name: Health poll
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          APP:         ${{ inputs.app }}
+        # docker compose ps reports health from container healthcheck.
+        run: |
+          ssh "deploy@$DEPLOY_HOST" '
+            APP='"$APP"'
+            for i in $(seq 1 30); do
+              status=$(cd /opt/vibes/$APP && docker compose ps --format "{{.Health}}" | head -1)
+              if [ "$status" = "healthy" ]; then
+                echo "app healthy on attempt $i"
+                exit 0
+              fi
+              echo "attempt $i: status=$status, retrying in 2s..."
+              sleep 2
+            done
+            echo "app never reported healthy" >&2
+            cd /opt/vibes/$APP && docker compose ps && docker compose logs --tail 80 >&2
+            exit 1
+          '

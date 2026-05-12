@@ -1,0 +1,39 @@
+# Caddy serves browser TLS direct (Let's Encrypt). No CDN in front.
+# Common header set + cache rules reused per host via snippet.
+
+(common_headers) {
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Frame-Options "DENY"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+		-Via
+	}
+}
+
+(spa_cache) {
+	@vendor path /vendor/*
+	header @vendor Cache-Control "public, max-age=31536000, immutable"
+
+	@assets path /assets/*
+	header @assets Cache-Control "public, max-age=31536000, immutable"
+
+	@html path / /index.html /login.html
+	header @html Cache-Control "no-cache"
+}
+
+{$VOICE_HUB_HOST} {
+	encode zstd gzip
+	import common_headers
+	header Permissions-Policy "microphone=(self), camera=(), geolocation=()"
+	header Content-Security-Policy "default-src 'self'; connect-src 'self' wss: https:; script-src 'self' 'wasm-unsafe-eval' blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; media-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
+	import spa_cache
+	reverse_proxy voice-hub-app:8080
+}
+
+{$MESSAGE_HUB_HOST} {
+	encode zstd gzip
+	import common_headers
+	reverse_proxy message-hub-app:8080
+}

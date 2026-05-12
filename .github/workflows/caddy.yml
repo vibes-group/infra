@@ -1,0 +1,61 @@
+name: Deploy caddy
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'caddy/**'
+      - '.github/workflows/caddy.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-caddy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup SSH
+        env:
+          DEPLOY_SSH_KEY:  ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_HOST_KEY: ${{ secrets.DEPLOY_HOST_KEY }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY"  > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$DEPLOY_HOST_KEY" > ~/.ssh/known_hosts
+
+      - name: Sync compose + Caddyfile
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          ssh "deploy@$DEPLOY_HOST" 'mkdir -p /opt/vibes/caddy'
+          scp caddy/compose.yml "deploy@$DEPLOY_HOST:/opt/vibes/caddy/compose.yml"
+          scp caddy/Caddyfile   "deploy@$DEPLOY_HOST:/opt/vibes/caddy/Caddyfile"
+
+      - name: Write caddy .env on host
+        env:
+          DEPLOY_HOST:      ${{ secrets.DEPLOY_HOST }}
+          VOICE_HUB_HOST:   ${{ secrets.VOICE_HUB_HOST }}
+          MESSAGE_HUB_HOST: ${{ secrets.MESSAGE_HUB_HOST }}
+        run: |
+          umask 077
+          : > .env.caddy
+          printf 'VOICE_HUB_HOST=%s\n'   "$VOICE_HUB_HOST"   >> .env.caddy
+          printf 'MESSAGE_HUB_HOST=%s\n' "$MESSAGE_HUB_HOST" >> .env.caddy
+          scp .env.caddy "deploy@$DEPLOY_HOST:/opt/vibes/caddy/.env"
+          ssh "deploy@$DEPLOY_HOST" 'chmod 600 /opt/vibes/caddy/.env'
+          rm -f .env.caddy
+
+      - name: Up + reload
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+        # `up -d` no-op when image and config unchanged; reload picks up Caddyfile edits.
+        run: |
+          ssh "deploy@$DEPLOY_HOST" '
+            cd /opt/vibes/caddy && \
+              docker compose up -d --remove-orphans && \
+              docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile
+          '

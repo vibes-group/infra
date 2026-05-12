@@ -1,0 +1,45 @@
+name: voice-hub
+
+# Subnet pinned so APP_TRUSTED_PROXIES can hard-reference it. Caddy lives in
+# the same `vibes_net` network → reverse_proxy source IP belongs to this range.
+networks:
+  default:
+    name: vibes_net
+    external: true
+
+services:
+  voice-hub-app:
+    image: ghcr.io/vibes-group/voice-hub-app:${IMAGE_TAG:?IMAGE_TAG is required}
+    restart: unless-stopped
+    mem_limit: 384m
+    mem_reservation: 128m
+    environment:
+      APP_ADDR: ":8080"
+      WEB_DIR: "/app/web"
+      APP_HOSTNAME: "${APP_HOSTNAME:?APP_HOSTNAME is required}"
+      PUBLIC_IP: "${PUBLIC_IP:?PUBLIC_IP is required}"
+      APP_ADMIN_PASSWORD: "${APP_ADMIN_PASSWORD:?APP_ADMIN_PASSWORD is required}"
+      APP_TRUSTED_PROXIES: "${VIBES_NET_SUBNET:-10.200.200.0/24}"
+      UDP_PORT_MIN: "${UDP_PORT_MIN:-10101}"
+      UDP_PORT_MAX: "${UDP_PORT_MAX:-10200}"
+      TURN_RELAY_PORT_MIN: "${TURN_RELAY_PORT_MIN:-49160}"
+      TURN_RELAY_PORT_MAX: "${TURN_RELAY_PORT_MAX:-49199}"
+    expose:
+      - "8080"
+    ports:
+      - "3478:3478/udp"
+      - "${UDP_PORT_MIN:-10101}-${UDP_PORT_MAX:-10200}:${UDP_PORT_MIN:-10101}-${UDP_PORT_MAX:-10200}/udp"
+      - "${TURN_RELAY_PORT_MIN:-49160}-${TURN_RELAY_PORT_MAX:-49199}:${TURN_RELAY_PORT_MIN:-49160}-${TURN_RELAY_PORT_MAX:-49199}/udp"
+    volumes:
+      - ./data:/app/data
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s

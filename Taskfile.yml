@@ -1,0 +1,37 @@
+version: '3'
+
+# Локальные команды для работы с прод-сервером. SSH-ключ должен быть подгружен
+# в агент (тот же, что в GitHub secret DEPLOY_SSH_KEY).
+# Хост берётся из переменной окружения DEPLOY_HOST.
+
+env:
+  DEPLOY_USER: deploy
+
+tasks:
+  status:
+    desc: docker compose ps на сервере для всех аппов
+    cmds:
+      - ssh "{{.DEPLOY_USER}}@{{.DEPLOY_HOST}}" 'for d in /opt/vibes/*/; do echo "=== $d ==="; (cd "$d" && docker compose ps 2>/dev/null) || true; done'
+    requires:
+      vars: [DEPLOY_HOST]
+
+  logs:
+    desc: 'tail логи аппа: task logs APP=voice-hub'
+    cmds:
+      - ssh "{{.DEPLOY_USER}}@{{.DEPLOY_HOST}}" 'cd /opt/vibes/{{.APP}} && docker compose logs --tail 200 -f'
+    requires:
+      vars: [DEPLOY_HOST, APP]
+
+  restart:
+    desc: 'рестарт аппа без обновления образа: task restart APP=voice-hub'
+    cmds:
+      - ssh "{{.DEPLOY_USER}}@{{.DEPLOY_HOST}}" 'cd /opt/vibes/{{.APP}} && docker compose restart'
+    requires:
+      vars: [DEPLOY_HOST, APP]
+
+  env:
+    desc: 'показать .env аппа на сервере: task env APP=voice-hub'
+    cmds:
+      - ssh "{{.DEPLOY_USER}}@{{.DEPLOY_HOST}}" 'cat /opt/vibes/{{.APP}}/.env'
+    requires:
+      vars: [DEPLOY_HOST, APP]

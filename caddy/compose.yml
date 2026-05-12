@@ -1,0 +1,27 @@
+name: vibes-caddy
+
+networks:
+  default:
+    name: vibes_net
+    external: true
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    mem_limit: 128m
+    mem_reservation: 32m
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      VOICE_HUB_HOST: "${VOICE_HUB_HOST:?VOICE_HUB_HOST is required}"
+      MESSAGE_HUB_HOST: "${MESSAGE_HUB_HOST:?MESSAGE_HUB_HOST is required}"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  caddy_data:

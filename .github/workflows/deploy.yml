@@ -30,6 +30,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          repository: vibes-group/infra
+          ref: master
 
       - name: Validate compose exists
         run: test -f apps/${{ inputs.app }}/compose.yml

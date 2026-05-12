@@ -23,8 +23,6 @@ jobs:
   redeploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-
       - name: Setup SSH
         env:
           DEPLOY_SSH_KEY:  ${{ secrets.DEPLOY_SSH_KEY }}

@@ -1,0 +1,46 @@
+name: Write app .env on host
+description: |
+  Writes /opt/vibes/<app>/.env on the deploy host from a multiline KEY=VALUE
+  string. App repos own their secret names; infra never sees them.
+
+inputs:
+  app:
+    required: true
+    description: App slug. Must match apps/<app>/compose.yml in infra.
+  deploy-host:
+    required: true
+    description: IPv4 of the deploy host (also used as PUBLIC_IP by some apps).
+  deploy-ssh-key:
+    required: true
+    description: Private SSH key for the deploy user.
+  host-key:
+    required: true
+    description: ssh-keyscan output for known_hosts.
+  env:
+    required: true
+    description: |
+      Multiline dotenv content. Each line KEY=VALUE. App composes this from its
+      own repo secrets (each secrets.X interpolation is masked individually).
+
+runs:
+  using: composite
+  steps:
+    - name: Write .env to host
+      shell: bash
+      env:
+        DEPLOY_HOST:    ${{ inputs.deploy-host }}
+        DEPLOY_SSH_KEY: ${{ inputs.deploy-ssh-key }}
+        HOST_KEY:       ${{ inputs.host-key }}
+        APP:            ${{ inputs.app }}
+        ENV_CONTENT:    ${{ inputs.env }}
+      run: |
+        set -euo pipefail
+        umask 077
+        mkdir -p ~/.ssh && chmod 700 ~/.ssh
+        printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+        printf '%s\n' "$HOST_KEY"       > ~/.ssh/known_hosts && chmod 644 ~/.ssh/known_hosts
+        printf '%s\n' "$ENV_CONTENT"    > .env.deploy
+        ssh "deploy@$DEPLOY_HOST" "mkdir -p /opt/vibes/$APP"
+        scp .env.deploy "deploy@$DEPLOY_HOST:/opt/vibes/$APP/.env"
+        ssh "deploy@$DEPLOY_HOST" "chmod 600 /opt/vibes/$APP/.env"
+        rm -f .env.deploy

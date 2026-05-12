@@ -16,6 +16,7 @@ services:
       - "443:443"
     environment:
       VOICE_HUB_HOST: "${VOICE_HUB_HOST:?VOICE_HUB_HOST is required}"
+      VOICE_HUB_HOST_ALIAS: "${VOICE_HUB_HOST_ALIAS:?VOICE_HUB_HOST_ALIAS is required}"
       MESSAGE_HUB_HOST: "${MESSAGE_HUB_HOST:?MESSAGE_HUB_HOST is required}"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro

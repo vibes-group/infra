@@ -23,7 +23,7 @@
 	header @html Cache-Control "no-cache"
 }
 
-{$VOICE_HUB_HOST} {
+{$VOICE_HUB_HOST}, {$VOICE_HUB_HOST_ALIAS} {
 	encode zstd gzip
 	import common_headers
 	header Permissions-Policy "microphone=(self), camera=(), geolocation=()"

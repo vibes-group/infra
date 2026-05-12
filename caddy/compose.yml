@@ -20,9 +20,6 @@ services:
       MESSAGE_HUB_HOST: "${MESSAGE_HUB_HOST:?MESSAGE_HUB_HOST is required}"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
+      - ./data:/data
     security_opt:
       - no-new-privileges:true
-
-volumes:
-  caddy_data:

@@ -59,7 +59,7 @@ systemctl reload ssh
 docker network inspect vibes_net >/dev/null 2>&1 || \
 	docker network create --subnet 10.200.200.0/24 vibes_net
 
-mkdir -p /opt/vibes/{caddy,voice-hub/data,message-hub}
+mkdir -p /opt/vibes/{caddy/data,voice-hub/data,message-hub}
 chown -R deploy:deploy /opt/vibes
 
 echo "bootstrap done."

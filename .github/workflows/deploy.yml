@@ -1,9 +1,6 @@
 name: Deploy app
 
-# Reusable workflow. Called from app repos AFTER the app's write-env job has
-# placed /opt/vibes/<app>/.env on the host (via composite action
-# .github/actions/write-env). This workflow only syncs compose, pulls image,
-# restarts, and polls health. It does not touch secrets/.env.
+# Reusable. Assumes .env уже на хосте (написан write-env composite в caller).
 
 on:
   workflow_call:
@@ -15,7 +12,7 @@ on:
       image_tag:
         required: true
         type: string
-        description: "Image tag being deployed (for logs/concurrency only; the .env on host carries the actual IMAGE_TAG)."
+        description: "Image tag (for logs/concurrency only; .env on host carries actual IMAGE_TAG)."
     secrets:
       DEPLOY_HOST:     { required: true }
       DEPLOY_SSH_KEY:  { required: true }
@@ -61,7 +58,7 @@ jobs:
         run: |
           ssh "deploy@$DEPLOY_HOST" "cd /opt/vibes/$APP && \
             docker compose pull && \
-            docker compose up -d --remove-orphans && \
+            docker compose up -d && \
             docker image prune -af"
 
       - name: Health poll
@@ -72,7 +69,7 @@ jobs:
           ssh "deploy@$DEPLOY_HOST" '
             APP='"$APP"'
             for i in $(seq 1 30); do
-              status=$(cd /opt/vibes/$APP && docker compose ps --format "{{.Health}}" | head -1)
+              status=$(cd /opt/vibes/$APP && docker compose ps "$APP-app" --format "{{.Health}}")
               if [ "$status" = "healthy" ]; then
                 echo "app healthy on attempt $i"
                 exit 0

@@ -22,6 +22,7 @@ concurrency:
 jobs:
   redeploy:
     runs-on: ubuntu-latest
+    permissions: {}
     steps:
       - name: Setup SSH
         env:

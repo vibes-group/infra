@@ -32,8 +32,8 @@ push в <app> master
 ```
 
 Статические SPA могут деплоиться отдельным artifact: app repo собирает `dist`,
-а `infra/.github/workflows/deploy-static.yml` синхронизирует его в
-`/opt/vibes/web/<site>`.
+а `infra/.github/workflows/deploy-static.yml` публикует его в
+`/opt/vibes/web/<site>/releases/<sha>` и атомарно переключает `current`.
 
 **Граница ответственности**: app репо владеет содержимым `.env` (свои секреты), infra владеет deploy mechanics (compose, pull, restart, health). infra не знает имён app-секретов.
 
@@ -80,7 +80,7 @@ services:
 │   ├── .env             # написан write-env composite из voice-hub repo
 │   └── data/            # bind, content: HMAC, argon хеши
 ├── web/
-│   └── <site>/           # static SPA artifacts, served by Caddy
+│   └── <site>/           # static SPA releases + current symlink, served by Caddy
 └── <app>/
     └── ...
 ```

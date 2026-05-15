@@ -53,10 +53,16 @@ jobs:
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           SITE:        ${{ inputs.site }}
+          RELEASE:     ${{ github.sha }}
         run: |
           tar -C dist -czf - . | ssh "deploy@$DEPLOY_HOST" "
             set -e
-            mkdir -p /opt/vibes/web/$SITE
-            find /opt/vibes/web/$SITE -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +
-            tar -xzf - -C /opt/vibes/web/$SITE
+            base=/opt/vibes/web/$SITE
+            release=\$base/releases/$RELEASE
+            rm -rf \"\$release\"
+            mkdir -p \"\$release\"
+            tar -xzf - -C \"\$release\"
+            ln -sfn \"releases/$RELEASE\" \"\$base/current.tmp\"
+            mv -Tf \"\$base/current.tmp\" \"\$base/current\"
+            find \"\$base/releases\" -mindepth 1 -maxdepth 1 -type d ! -name \"$RELEASE\" -exec rm -rf -- {} +
           "

@@ -34,7 +34,7 @@ jobs:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
         run: |
           ssh "deploy@$DEPLOY_HOST" 'mkdir -p /opt/vibes/caddy'
-          ssh "deploy@$DEPLOY_HOST" 'mkdir -p /opt/vibes/web/message-hub'
+          ssh "deploy@$DEPLOY_HOST" 'mkdir -p /opt/vibes/web/message-hub/releases'
           scp caddy/compose.yml "deploy@$DEPLOY_HOST:/opt/vibes/caddy/compose.yml"
           scp caddy/Caddyfile   "deploy@$DEPLOY_HOST:/opt/vibes/caddy/Caddyfile"
 

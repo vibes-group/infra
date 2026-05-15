@@ -1,17 +1,17 @@
-# Правила для AI-агентов
+# Rules for AI agents
 
-Репозиторий публичный. Не коммить реальные секреты, хосты, IP, имена пользователей, домашние пути и вывод локального окружения.
+This repository is **public**. Treat every commit as visible.
 
-## Безопасность
+## Security
 
-- Не добавлять `.env`, токены, SSH-ключи, пароли, host keys и приватные значения из GitHub Secrets.
-- В документации и примерах использовать плейсхолдеры: `<server-ip>`, `your-host.example.com`, `<app>`.
-- Не хардкодить реальные prod/dev хосты или IP в workflow, compose, Caddyfile и docs.
-- Перед коммитом проверять diff на секреты и реальные инфраструктурные значения.
+- Never commit `.env`, tokens, SSH keys, passwords, host keys, or values from GitHub Secrets.
+- Use placeholders in docs: `<server-ip>`, `your-host.example.com`, `<app>`.
+- Don't hardcode real prod/dev hosts or IPs in workflows, compose files, Caddyfile, or docs.
+- Review the diff for secrets before committing.
 
 ## Git
 
-- Коммиты по conventional commits: `fix:`, `chore:`, `docs:`, `ci:`.
-- Не делать `--amend` опубликованных коммитов и `--force-push` в `master`.
-- Не смешивать deploy/config changes с unrelated refactor.
-- Перед PR/commit прогонять релевантную проверку: YAML syntax, compose config, или dry-run команды, если они есть.
+- Conventional commits: `fix:`, `chore:`, `docs:`, `ci:`.
+- No `--amend` on published commits, no `--force-push` to `master`.
+- Don't mix deploy/config changes with unrelated refactors.
+- Before commit: sanity-check YAML / compose / dry-run if applicable.

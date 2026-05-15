@@ -15,7 +15,7 @@ services:
     mem_reservation: 128m
     environment:
       APP_ADDR: ":8080"
-      WEB_DIR: "/app/web"
+      APP_WEB_DIR: "/app/web"
       APP_HOSTNAME: "${APP_HOSTNAME:?APP_HOSTNAME is required}"
       PUBLIC_IP: "${PUBLIC_IP:?PUBLIC_IP is required}"
       APP_ADMIN_PASSWORD: "${APP_ADMIN_PASSWORD:?APP_ADMIN_PASSWORD is required}"

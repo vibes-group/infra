@@ -13,7 +13,6 @@ services:
     mem_reservation: 32m
     environment:
       APP_ADDR: ":8080"
-      APP_WEB_DIR: "/app/web"
     expose:
       - "8080"
     security_opt:

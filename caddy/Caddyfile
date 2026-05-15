@@ -43,10 +43,6 @@
 		reverse_proxy message-hub-app:8080
 	}
 
-	handle /assets/* {
-		file_server
-	}
-
 	handle {
 		try_files {path} /index.html
 		file_server

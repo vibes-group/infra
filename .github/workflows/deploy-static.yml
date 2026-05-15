@@ -56,7 +56,7 @@ jobs:
         run: |
           tar -C dist -czf - . | ssh "deploy@$DEPLOY_HOST" "
             set -e
-            rm -rf /opt/vibes/web/$SITE
             mkdir -p /opt/vibes/web/$SITE
+            find /opt/vibes/web/$SITE -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +
             tar -xzf - -C /opt/vibes/web/$SITE
           "

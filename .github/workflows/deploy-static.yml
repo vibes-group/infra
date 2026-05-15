@@ -64,5 +64,6 @@ jobs:
             tar -xzf - -C \"\$release\"
             ln -sfn \"releases/$RELEASE\" \"\$base/current.tmp\"
             mv -Tf \"\$base/current.tmp\" \"\$base/current\"
+            find \"\$base\" -mindepth 1 -maxdepth 1 ! -name releases ! -name current -exec rm -rf -- {} +
             find \"\$base/releases\" -mindepth 1 -maxdepth 1 -type d ! -name \"$RELEASE\" -exec rm -rf -- {} +
           "

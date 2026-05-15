@@ -49,10 +49,14 @@ jobs:
           printf '%s\n' "$DEPLOY_SSH_KEY"  > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
           printf '%s\n' "$DEPLOY_HOST_KEY" > ~/.ssh/known_hosts && chmod 644 ~/.ssh/known_hosts
 
-      - name: Rsync static files
+      - name: Sync static files
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           SITE:        ${{ inputs.site }}
         run: |
-          ssh "deploy@$DEPLOY_HOST" "mkdir -p /opt/vibes/web/$SITE"
-          rsync -az --delete-after dist/ "deploy@$DEPLOY_HOST:/opt/vibes/web/$SITE/"
+          tar -C dist -czf - . | ssh "deploy@$DEPLOY_HOST" "
+            set -e
+            rm -rf /opt/vibes/web/$SITE
+            mkdir -p /opt/vibes/web/$SITE
+            tar -xzf - -C /opt/vibes/web/$SITE
+          "

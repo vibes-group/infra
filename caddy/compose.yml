@@ -27,5 +27,6 @@ services:
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - ./data:/data
+      - /opt/vibes/web/message-hub:/srv/message-hub:ro
     security_opt:
       - no-new-privileges:true

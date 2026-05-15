@@ -13,6 +13,7 @@ caddy/Caddyfile                       # vhosts, читает {$VOICE_HUB_HOST}, 
 scripts/bootstrap.sh                  # one-shot VPS setup (docker, ufw, sysctl, user, dirs)
 .github/actions/write-env/action.yml  # composite: app репо пишет свой .env на хост
 .github/workflows/deploy.yml          # reusable: scp compose, pull, up -d, health poll
+.github/workflows/deploy-static.yml   # reusable: download artifact, rsync static files to /opt/vibes/web/<site>
 .github/workflows/redeploy.yml        # workflow_dispatch — переключение на старый sha
 .github/workflows/caddy.yml           # push в caddy/** → редеплой Caddy
 Taskfile.yml                          # локальные команды: status, logs, restart
@@ -29,6 +30,10 @@ push в <app> master
       job deploy:    uses infra/.github/workflows/deploy.yml@master
                      scp compose → docker compose pull && up -d → health poll
 ```
+
+Статические SPA могут деплоиться отдельным artifact: app repo собирает `dist`,
+а `infra/.github/workflows/deploy-static.yml` синхронизирует его в
+`/opt/vibes/web/<site>`.
 
 **Граница ответственности**: app репо владеет содержимым `.env` (свои секреты), infra владеет deploy mechanics (compose, pull, restart, health). infra не знает имён app-секретов.
 
@@ -74,6 +79,8 @@ services:
 │   ├── compose.yml      # из infra apps/voice-hub/
 │   ├── .env             # написан write-env composite из voice-hub repo
 │   └── data/            # bind, content: HMAC, argon хеши
+├── web/
+│   └── <site>/           # static SPA artifacts, served by Caddy
 └── <app>/
     └── ...
 ```

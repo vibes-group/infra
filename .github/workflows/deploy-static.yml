@@ -1,0 +1,58 @@
+name: Deploy static site
+
+on:
+  workflow_call:
+    inputs:
+      site:
+        required: true
+        type: string
+        description: "Static site slug under /opt/vibes/web/<site>."
+      artifact:
+        required: true
+        type: string
+        description: "Artifact name containing built static files."
+    secrets:
+      DEPLOY_HOST:     { required: true }
+      DEPLOY_SSH_KEY:  { required: true }
+      DEPLOY_HOST_KEY: { required: true }
+
+concurrency:
+  group: deploy-static-${{ inputs.site }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          name: ${{ inputs.artifact }}
+          path: dist
+
+      - name: Validate site slug
+        run: |
+          case "${{ inputs.site }}" in
+            *[!a-z0-9-]*|""|-*|*-)
+              echo "invalid static site slug: ${{ inputs.site }}" >&2
+              exit 1
+              ;;
+          esac
+
+      - name: Setup SSH
+        env:
+          DEPLOY_SSH_KEY:  ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_HOST_KEY: ${{ secrets.DEPLOY_HOST_KEY }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY"  > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$DEPLOY_HOST_KEY" > ~/.ssh/known_hosts && chmod 644 ~/.ssh/known_hosts
+
+      - name: Rsync static files
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          SITE:        ${{ inputs.site }}
+        run: |
+          ssh "deploy@$DEPLOY_HOST" "mkdir -p /opt/vibes/web/$SITE"
+          rsync -az --delete-after dist/ "deploy@$DEPLOY_HOST:/opt/vibes/web/$SITE/"

@@ -62,4 +62,31 @@ docker network inspect vibes_net >/dev/null 2>&1 || \
 mkdir -p /opt/vibes/{caddy/data,voice-hub/data,message-hub}
 chown -R deploy:deploy /opt/vibes
 
+# --- weekly docker image GC (catches orphans from removed apps) ---
+cat > /etc/systemd/system/docker-prune.service <<'EOF'
+[Unit]
+Description=Prune unused docker images older than 30d
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/docker image prune -af --filter until=720h
+EOF
+
+cat > /etc/systemd/system/docker-prune.timer <<'EOF'
+[Unit]
+Description=Weekly docker image prune
+
+[Timer]
+OnCalendar=weekly
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOF
+
+systemctl daemon-reload
+systemctl enable --now docker-prune.timer
+
 echo "bootstrap done."

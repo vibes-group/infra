@@ -9,10 +9,6 @@ on:
         required: true
         type: string
         description: "App slug. Must match apps/<app>/compose.yml."
-      image_tag:
-        required: true
-        type: string
-        description: "Image tag (for logs/concurrency only; .env on host carries actual IMAGE_TAG)."
     secrets:
       DEPLOY_HOST:     { required: true }
       DEPLOY_SSH_KEY:  { required: true }
@@ -77,7 +73,6 @@ jobs:
             cd "/opt/vibes/$APP"
             docker compose pull
             docker compose up -d --remove-orphans
-            docker image prune -af --filter "until=168h"
           EOF
 
       - name: Health poll

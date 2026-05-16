@@ -25,20 +25,34 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v6
         with:
           repository: vibes-group/infra
           ref: master
 
-      - name: Validate compose exists
-        run: test -f apps/${{ inputs.app }}/compose.yml
+      - name: Validate app slug
+        env:
+          APP: ${{ inputs.app }}
+        run: |
+          set -euo pipefail
+          case "$APP" in
+            *[!a-z0-9-]*|""|-*|*-)
+              echo "invalid app slug: $APP" >&2
+              exit 1
+              ;;
+          esac
+          test -f "apps/$APP/compose.yml"
 
       - name: Setup SSH
         env:
           DEPLOY_SSH_KEY:  ${{ secrets.DEPLOY_SSH_KEY }}
           DEPLOY_HOST_KEY: ${{ secrets.DEPLOY_HOST_KEY }}
         run: |
+          set -euo pipefail
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
           printf '%s\n' "$DEPLOY_SSH_KEY"  > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
           printf '%s\n' "$DEPLOY_HOST_KEY" > ~/.ssh/known_hosts && chmod 644 ~/.ssh/known_hosts
@@ -48,6 +62,7 @@ jobs:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           APP:         ${{ inputs.app }}
         run: |
+          set -euo pipefail
           ssh "deploy@$DEPLOY_HOST" "mkdir -p /opt/vibes/$APP"
           scp "apps/$APP/compose.yml" "deploy@$DEPLOY_HOST:/opt/vibes/$APP/compose.yml"
 
@@ -56,20 +71,26 @@ jobs:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           APP:         ${{ inputs.app }}
         run: |
-          ssh "deploy@$DEPLOY_HOST" "cd /opt/vibes/$APP && \
-            docker compose pull && \
-            docker compose up -d && \
-            docker image prune -af"
+          set -euo pipefail
+          ssh "deploy@$DEPLOY_HOST" APP="$APP" bash -s <<'EOF'
+            set -euo pipefail
+            cd "/opt/vibes/$APP"
+            docker compose pull
+            docker compose up -d --remove-orphans
+            docker image prune -af --filter "until=168h"
+          EOF
 
       - name: Health poll
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           APP:         ${{ inputs.app }}
         run: |
-          ssh "deploy@$DEPLOY_HOST" '
-            APP='"$APP"'
+          set -euo pipefail
+          ssh "deploy@$DEPLOY_HOST" APP="$APP" bash -s <<'EOF'
+            set -euo pipefail
+            cd "/opt/vibes/$APP"
             for i in $(seq 1 30); do
-              status=$(cd /opt/vibes/$APP && docker compose ps "$APP-app" --format "{{.Health}}")
+              status=$(docker compose ps "$APP-app" --format "{{.Health}}")
               if [ "$status" = "healthy" ]; then
                 echo "app healthy on attempt $i"
                 exit 0
@@ -78,6 +99,7 @@ jobs:
               sleep 2
             done
             echo "app never reported healthy" >&2
-            cd /opt/vibes/$APP && docker compose ps && docker compose logs --tail 80 >&2
+            docker compose ps
+            docker compose logs --tail 80 >&2
             exit 1
-          '
+          EOF

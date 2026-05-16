@@ -13,8 +13,7 @@ caddy/Caddyfile                       # vhosts, читает {$VOICE_HUB_HOST}, 
 scripts/bootstrap.sh                  # one-shot VPS setup (docker, ufw, sysctl, user, dirs)
 .github/actions/write-env/action.yml  # composite: app репо пишет свой .env на хост
 .github/workflows/deploy.yml          # reusable: scp compose, pull, up -d, health poll
-.github/workflows/deploy-static.yml   # reusable: download artifact, rsync static files to /opt/vibes/web/<site>
-.github/workflows/redeploy.yml        # workflow_dispatch — переключение на старый sha
+.github/workflows/deploy-static.yml   # reusable: download artifact, publish static files to /opt/vibes/web/<site>
 .github/workflows/caddy.yml           # push в caddy/** → редеплой Caddy
 Taskfile.yml                          # локальные команды: status, logs, restart
 ```
@@ -110,7 +109,7 @@ ssh root@<host> 'bash /tmp/bootstrap.sh'
 ## Откат
 
 ```
-gh workflow run redeploy.yml -f app=<app> -f image_tag=<old-sha> --repo vibes-group/infra
+gh workflow run <build-workflow>.yml --ref <old-sha-or-tag> --repo vibes-group/<app>
 ```
 
 Старый sha берётся из `git log` app репо или GHCR package versions.

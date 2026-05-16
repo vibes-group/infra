@@ -23,28 +23,33 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       actions: read
     steps:
+      - name: Validate site slug
+        env:
+          SITE: ${{ inputs.site }}
+        run: |
+          set -euo pipefail
+          case "$SITE" in
+            *[!a-z0-9-]*|""|-*|*-)
+              echo "invalid static site slug: $SITE" >&2
+              exit 1
+              ;;
+          esac
+
       - uses: actions/download-artifact@v5
         with:
           name: ${{ inputs.artifact }}
           path: dist
-
-      - name: Validate site slug
-        run: |
-          case "${{ inputs.site }}" in
-            *[!a-z0-9-]*|""|-*|*-)
-              echo "invalid static site slug: ${{ inputs.site }}" >&2
-              exit 1
-              ;;
-          esac
 
       - name: Setup SSH
         env:
           DEPLOY_SSH_KEY:  ${{ secrets.DEPLOY_SSH_KEY }}
           DEPLOY_HOST_KEY: ${{ secrets.DEPLOY_HOST_KEY }}
         run: |
+          set -euo pipefail
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
           printf '%s\n' "$DEPLOY_SSH_KEY"  > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
           printf '%s\n' "$DEPLOY_HOST_KEY" > ~/.ssh/known_hosts && chmod 644 ~/.ssh/known_hosts
@@ -55,15 +60,20 @@ jobs:
           SITE:        ${{ inputs.site }}
           RELEASE:     ${{ github.sha }}
         run: |
+          set -euo pipefail
           tar -C dist -czf - . | ssh "deploy@$DEPLOY_HOST" "
             set -e
             base=/opt/vibes/web/$SITE
             release=\$base/releases/$RELEASE
+            mkdir -p \"\$base/releases\"
             rm -rf \"\$release\"
             mkdir -p \"\$release\"
             tar -xzf - -C \"\$release\"
             ln -sfn \"releases/$RELEASE\" \"\$base/current.tmp\"
             mv -Tf \"\$base/current.tmp\" \"\$base/current\"
             find \"\$base\" -mindepth 1 -maxdepth 1 ! -name releases ! -name current -exec rm -rf -- {} +
-            find \"\$base/releases\" -mindepth 1 -maxdepth 1 -type d ! -name \"$RELEASE\" -exec rm -rf -- {} +
+            # Keep last 3 releases (including current) for rollback.
+            ls -1t \"\$base/releases\" | tail -n +4 | while read -r old; do
+              rm -rf -- \"\$base/releases/\$old\"
+            done
           "

@@ -1,6 +1,5 @@
 # Caddy serves browser TLS direct (Let's Encrypt). No CDN in front.
 # Common header set + cache rules reused per host via snippet.
-
 {
 	servers {
 		protocols h1 h2 h3

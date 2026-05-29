@@ -6,15 +6,28 @@ networks:
     external: true
 
 services:
+  message-hub-data-init:
+    image: busybox:1.37
+    command: ["sh", "-c", "mkdir -p /data && chown -R 10001:10001 /data"]
+    volumes:
+      - ./data:/data
+    restart: "no"
+
   message-hub-app:
     image: ghcr.io/vibes-group/message-hub-app:${IMAGE_TAG:?IMAGE_TAG is required}
     restart: unless-stopped
     mem_limit: 128m
     mem_reservation: 32m
+    depends_on:
+      message-hub-data-init:
+        condition: service_completed_successfully
     environment:
       APP_ADDR: ":8080"
+      APP_DB_PATH: /data/message-hub.db
     expose:
       - "8080"
+    volumes:
+      - ./data:/data
     security_opt:
       - no-new-privileges:true
     read_only: true

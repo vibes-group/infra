@@ -57,7 +57,7 @@ ssh root@<host> 'bash /tmp/bootstrap.sh'
 
 1. `apps/<app>/compose.yml` (см. контракт).
 2. vhost в `caddy/Caddyfile`: `{$<APP>_HOST} { reverse_proxy <app>-app:8080 }`.
-3. Org secret `<APP>_HOST` (scope: infra + app репо).
+3. Org secret `<APP>_HOST` (scope: infra + app репо). Для `currency-hub`: `CURRENCY_HUB_HOST=currency-hub.neverx.net`.
 4. В app репо workflow с jobs: `build`, `write-env` (uses `infra/.github/actions/write-env`), `deploy` (uses `infra/.github/workflows/deploy.yml`).
 
 ## Откат

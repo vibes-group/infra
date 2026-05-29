@@ -24,6 +24,7 @@ services:
     environment:
       VOICE_HUB_HOST: "${VOICE_HUB_HOST:?VOICE_HUB_HOST is required}"
       MESSAGE_HUB_HOST: "${MESSAGE_HUB_HOST:?MESSAGE_HUB_HOST is required}"
+      CURRENCY_HUB_HOST: "${CURRENCY_HUB_HOST:?CURRENCY_HUB_HOST is required}"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - ./data:/data

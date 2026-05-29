@@ -53,3 +53,16 @@
 		file_server
 	}
 }
+
+{$CURRENCY_HUB_HOST} {
+	encode zstd gzip
+	import common_headers
+	header Content-Security-Policy "default-src 'self'; connect-src 'self' https:; script-src 'self'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
+	import spa_cache
+	root * /srv/web/currency-hub/current
+
+	handle {
+		try_files {path} /index.html
+		file_server
+	}
+}

@@ -8,11 +8,21 @@ networks:
     external: true
 
 services:
+  voice-hub-data-init:
+    image: busybox:1.37
+    command: ["sh", "-c", "mkdir -p /app/data && chown -R 10001:10001 /app/data"]
+    volumes:
+      - ./data:/app/data
+    restart: "no"
+
   voice-hub-app:
     image: ghcr.io/vibes-group/voice-hub-app:${IMAGE_TAG:?IMAGE_TAG is required}
     restart: unless-stopped
     mem_limit: 384m
     mem_reservation: 128m
+    depends_on:
+      voice-hub-data-init:
+        condition: service_completed_successfully
     environment:
       APP_ADDR: ":8080"
       APP_WEB_DIR: "/app/web"

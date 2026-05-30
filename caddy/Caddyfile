@@ -40,7 +40,7 @@
 {$MESSAGE_HUB_HOST} {
 	encode zstd gzip
 	import common_headers
-	header Content-Security-Policy "default-src 'self'; connect-src 'self' wss: https:; script-src 'self'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
+	header Content-Security-Policy "default-src 'self'; connect-src 'self' wss: https:; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
 	import spa_cache
 	root * /srv/web/message-hub/current
 

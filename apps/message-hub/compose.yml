@@ -24,8 +24,17 @@ services:
     environment:
       APP_ADDR: ":8080"
       APP_DB_PATH: /data/message-hub.db
+      TURN_PUBLIC_IP: "${PUBLIC_IP:?PUBLIC_IP is required}"
+      TURN_PUBLIC_PORT: "${TURN_PUBLIC_PORT:-3479}"
+      TURN_LISTEN_ADDR: "0.0.0.0:${TURN_PUBLIC_PORT:-3479}"
+      TURN_REALM: "${APP_HOSTNAME:?APP_HOSTNAME is required}"
+      TURN_RELAY_PORT_MIN: "${TURN_RELAY_PORT_MIN:-49200}"
+      TURN_RELAY_PORT_MAX: "${TURN_RELAY_PORT_MAX:-49239}"
     expose:
       - "8080"
+    ports:
+      - "${TURN_PUBLIC_PORT:-3479}:${TURN_PUBLIC_PORT:-3479}/udp"
+      - "${TURN_RELAY_PORT_MIN:-49200}-${TURN_RELAY_PORT_MAX:-49239}:${TURN_RELAY_PORT_MIN:-49200}-${TURN_RELAY_PORT_MAX:-49239}/udp"
     volumes:
       - ./data:/data
     security_opt:

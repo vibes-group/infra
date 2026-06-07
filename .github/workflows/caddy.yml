@@ -44,7 +44,6 @@ jobs:
         env:
           DEPLOY_HOST:        ${{ secrets.DEPLOY_HOST }}
           VOICE_HUB_HOST:     ${{ secrets.VOICE_HUB_HOST }}
-          MESSAGE_HUB_HOST:   ${{ secrets.MESSAGE_HUB_HOST }}
           CURRENCY_HUB_HOST:  ${{ secrets.CURRENCY_HUB_HOST }}
         run: |
           set -euo pipefail
@@ -52,7 +51,6 @@ jobs:
           trap 'rm -f .env.caddy' EXIT
           : > .env.caddy
           printf 'VOICE_HUB_HOST=%s\n'    "$VOICE_HUB_HOST"    >> .env.caddy
-          printf 'MESSAGE_HUB_HOST=%s\n'  "$MESSAGE_HUB_HOST"  >> .env.caddy
           printf 'CURRENCY_HUB_HOST=%s\n' "$CURRENCY_HUB_HOST" >> .env.caddy
           scp .env.caddy "deploy@$DEPLOY_HOST:/opt/vibes/caddy/.env"
           ssh "deploy@$DEPLOY_HOST" 'chmod 600 /opt/vibes/caddy/.env'

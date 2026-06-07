@@ -5,6 +5,17 @@
 #         ssh root@<host> 'bash /tmp/bootstrap.sh'
 set -euo pipefail
 
+export DEBIAN_FRONTEND=noninteractive
+
+# --- base system: full patch + automatic security updates ---
+apt-get update
+apt-get -y -o Dpkg::Options::=--force-confold dist-upgrade
+apt-get install -y unattended-upgrades ufw curl ca-certificates
+cat > /etc/apt/apt.conf.d/20auto-upgrades <<'EOF'
+APT::Periodic::Update-Package-Lists "1";
+APT::Periodic::Unattended-Upgrade "1";
+EOF
+
 # --- swap (1 GB VPS hits OOM without it) ---
 if [ ! -f /swapfile ]; then
 	fallocate -l 2G /swapfile
@@ -43,23 +54,22 @@ sysctl --system
 # --- non-root deploy user ---
 id deploy >/dev/null 2>&1 || useradd -m -s /bin/bash -G docker deploy
 
-# --- UFW: SSH + voice UDP ---
-# TCP 80/443 are docker-published — filtered by docker iptables, not UFW.
+# --- UFW: SSH only ---
+# App ports are docker-published; userland-proxy:false makes docker's DNAT bypass
+# ufw, so per-app rules here are inert (re-enable the proxy → add them back).
 ufw allow 22/tcp
-ufw allow 3478/udp comment "voice-hub stun/turn"
-ufw allow 10101:10200/udp comment "voice-hub ICE"
-ufw allow 49160:49199/udp comment "voice-hub TURN relay"
 ufw --force enable
 
 # --- SSH hardening ---
 sed -i 's/^#*PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config
 systemctl reload ssh
 
-# --- vibes network + dirs ---
+# --- vibes network + base dir ---
+# CI workflows mkdir each /opt/vibes/<app> as deploy, so only the deploy-owned
+# root must pre-exist. web/ is pre-made so caddy's bind mount can't grab it as root.
 docker network inspect vibes_net >/dev/null 2>&1 || \
 	docker network create --subnet 10.200.200.0/24 vibes_net
-
-mkdir -p /opt/vibes/{caddy/data,voice-hub/data,message-hub,web/message-hub,web/currency-hub}
+mkdir -p /opt/vibes/web
 chown -R deploy:deploy /opt/vibes
 
 # --- weekly docker image GC (catches orphans from removed apps) ---

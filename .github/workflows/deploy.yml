@@ -98,3 +98,14 @@ jobs:
             docker compose logs --tail 80 >&2
             exit 1
           EOF
+
+      - name: Prune unused images
+        continue-on-error: true
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          set -euo pipefail
+          # Runs only after the new container is healthy: its image — and every
+          # other running app's image — is referenced and kept; everything else
+          # (old deploys, dangling layers) is reclaimed.
+          ssh "deploy@$DEPLOY_HOST" "docker image prune -af"

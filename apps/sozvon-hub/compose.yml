@@ -1,0 +1,58 @@
+name: sozvon-hub
+
+# Distinct UDP ports from voice-hub (3478/10101-10200/49160-49199) and
+# message-hub (3479/49200-49239) so all three coexist on one host.
+networks:
+  default:
+    name: vibes_net
+    external: true
+
+services:
+  sozvon-hub-data-init:
+    image: busybox:1.37
+    command: ["sh", "-c", "mkdir -p /app/data && chown -R 10001:10001 /app/data"]
+    volumes:
+      - ./data:/app/data
+    restart: "no"
+
+  sozvon-hub-app:
+    image: ghcr.io/vibes-group/sozvon-hub-app:${IMAGE_TAG:?IMAGE_TAG is required}
+    restart: unless-stopped
+    mem_limit: 384m
+    mem_reservation: 128m
+    depends_on:
+      sozvon-hub-data-init:
+        condition: service_completed_successfully
+    environment:
+      APP_ADDR: ":8080"
+      APP_WEB_DIR: "/app/web"
+      APP_HOSTNAME: "${APP_HOSTNAME:?APP_HOSTNAME is required}"
+      PUBLIC_IP: "${PUBLIC_IP:?PUBLIC_IP is required}"
+      APP_COOKIE_SECURE: "true"
+      APP_BOOTSTRAP_INVITE: "true"
+      APP_DB_PATH: "/app/data/sozvon-hub.db"
+      APP_TRUSTED_PROXIES: "${VIBES_NET_SUBNET:-10.200.200.0/24}"
+      TURN_PORT: "${TURN_PORT:-3480}"
+      UDP_PORT_MIN: "${UDP_PORT_MIN:-10301}"
+      UDP_PORT_MAX: "${UDP_PORT_MAX:-10400}"
+      TURN_RELAY_PORT_MIN: "${TURN_RELAY_PORT_MIN:-49240}"
+      TURN_RELAY_PORT_MAX: "${TURN_RELAY_PORT_MAX:-49279}"
+    expose:
+      - "8080"
+    ports:
+      - "${TURN_PORT:-3480}:${TURN_PORT:-3480}/udp"
+      - "${UDP_PORT_MIN:-10301}-${UDP_PORT_MAX:-10400}:${UDP_PORT_MIN:-10301}-${UDP_PORT_MAX:-10400}/udp"
+      - "${TURN_RELAY_PORT_MIN:-49240}-${TURN_RELAY_PORT_MAX:-49279}:${TURN_RELAY_PORT_MIN:-49240}-${TURN_RELAY_PORT_MAX:-49279}/udp"
+    volumes:
+      - ./data:/app/data
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s

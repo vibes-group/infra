@@ -23,6 +23,7 @@ services:
       - "443:443/udp"
     environment:
       VOICE_HUB_HOST: "${VOICE_HUB_HOST:?VOICE_HUB_HOST is required}"
+      SOZVON_HUB_HOST: "${SOZVON_HUB_HOST:?SOZVON_HUB_HOST is required}"
       CURRENCY_HUB_HOST: "${CURRENCY_HUB_HOST:?CURRENCY_HUB_HOST is required}"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro

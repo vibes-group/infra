@@ -37,6 +37,15 @@
 	reverse_proxy voice-hub-app:8080
 }
 
+{$SOZVON_HUB_HOST} {
+	encode zstd gzip
+	import common_headers
+	header Permissions-Policy "microphone=(self), camera=(self), display-capture=(self), geolocation=()"
+	header Content-Security-Policy "default-src 'self'; connect-src 'self' wss: https:; script-src 'self' 'wasm-unsafe-eval' blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; media-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
+	import spa_cache
+	reverse_proxy sozvon-hub-app:8080
+}
+
 {$CURRENCY_HUB_HOST} {
 	encode zstd gzip
 	import common_headers

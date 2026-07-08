@@ -1,0 +1,30 @@
+name: ots
+
+# Third-party pinned image, deployed straight from infra (like caddy) — no
+# build step, no app repo. Mirrors the working ots.cryptorank.site setup: plain
+# luzifer/ots with the DEFAULT in-memory backend (no env needed) — secrets live
+# in RAM and are gone on restart/redeploy, which is fine for one-time,
+# short-lived secrets. Image tag is pinned per infra convention (cryptorank
+# runs :latest).
+#
+# No container healthcheck: the final OTS image is `scratch` (no shell/wget), so
+# the wget-based contract healthcheck can't run here. Liveness is verified by a
+# functional HTTP probe in .github/workflows/ots.yml instead.
+networks:
+  default:
+    name: vibes_net
+    external: true
+
+services:
+  ots-app:
+    image: ghcr.io/luzifer/ots:v1.21.8
+    restart: unless-stopped
+    mem_limit: 128m
+    mem_reservation: 32m
+    expose:
+      - "3000"
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp

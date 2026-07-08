@@ -1,0 +1,90 @@
+name: Deploy ots
+
+# Third-party image (ghcr.io/luzifer/ots), deployed straight from infra like
+# caddy — no build, no app repo, no .env. Self-contained (not the reusable
+# deploy.yml, which health-polls a container healthcheck the scratch OTS image
+# can't provide).
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'apps/ots/**'
+      - '.github/workflows/ots.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-ots
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup SSH
+        env:
+          DEPLOY_SSH_KEY:  ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_HOST_KEY: ${{ secrets.DEPLOY_HOST_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY"  > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$DEPLOY_HOST_KEY" > ~/.ssh/known_hosts && chmod 644 ~/.ssh/known_hosts
+
+      - name: Sync compose
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          set -euo pipefail
+          ssh "deploy@$DEPLOY_HOST" 'mkdir -p /opt/vibes/ots'
+          scp apps/ots/compose.yml "deploy@$DEPLOY_HOST:/opt/vibes/ots/compose.yml"
+
+      - name: Pull and restart
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          set -euo pipefail
+          ssh "deploy@$DEPLOY_HOST" bash -s <<'EOF'
+            set -euo pipefail
+            cd /opt/vibes/ots
+            docker compose pull
+            docker compose up -d --remove-orphans
+          EOF
+
+      - name: Health poll
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+        # Functional probe: the scratch OTS image has no shell for a container
+        # healthcheck, so hit it over vibes_net from a throwaway busybox.
+        run: |
+          set -euo pipefail
+          ssh "deploy@$DEPLOY_HOST" bash -s <<'EOF'
+            set -euo pipefail
+            for i in $(seq 1 30); do
+              if docker run --rm --network vibes_net busybox:1.37 \
+                   wget -qO- http://ots-app:3000/ >/dev/null 2>&1; then
+                echo "ots healthy on attempt $i"
+                exit 0
+              fi
+              echo "attempt $i: not ready, retrying in 2s..."
+              sleep 2
+            done
+            echo "ots never responded on :3000" >&2
+            cd /opt/vibes/ots
+            docker compose ps
+            docker compose logs --tail 80 >&2
+            exit 1
+          EOF
+
+      - name: Prune unused images
+        continue-on-error: true
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          set -euo pipefail
+          ssh "deploy@$DEPLOY_HOST" "docker image prune -af"

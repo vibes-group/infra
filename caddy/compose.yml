@@ -25,6 +25,7 @@ services:
       VOICE_HUB_HOST: "${VOICE_HUB_HOST:?VOICE_HUB_HOST is required}"
       SOZVON_HUB_HOST: "${SOZVON_HUB_HOST:?SOZVON_HUB_HOST is required}"
       CURRENCY_HUB_HOST: "${CURRENCY_HUB_HOST:?CURRENCY_HUB_HOST is required}"
+      OTS_HOST: "${OTS_HOST:?OTS_HOST is required}"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - ./data:/data

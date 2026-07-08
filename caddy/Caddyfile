@@ -46,6 +46,12 @@
 	reverse_proxy sozvon-hub-app:8080
 }
 
+{$OTS_HOST} {
+	encode zstd gzip
+	import common_headers
+	reverse_proxy ots-app:3000
+}
+
 {$CURRENCY_HUB_HOST} {
 	encode zstd gzip
 	import common_headers

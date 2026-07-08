@@ -63,11 +63,14 @@ jobs:
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
         # `up -d` no-op when image and config unchanged; reload picks up Caddyfile edits.
+        # `--wait` blocks until the (re)created container is healthy — its healthcheck
+        # hits the admin API on :2019, so the subsequent reload can't race a not-yet-up
+        # admin endpoint (which happens when compose.yml changes force a recreate).
         run: |
           set -euo pipefail
           ssh "deploy@$DEPLOY_HOST" '
             set -e
             cd /opt/vibes/caddy
-            docker compose up -d --remove-orphans
+            docker compose up -d --remove-orphans --wait
             docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile
           '

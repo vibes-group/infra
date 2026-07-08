@@ -7,6 +7,9 @@ set -euo pipefail
 
 export DEBIAN_FRONTEND=noninteractive
 
+# --- timezone: UTC on all servers (uniform logs) ---
+timedatectl set-timezone UTC
+
 # --- base system: full patch + automatic security updates ---
 apt-get update
 apt-get -y -o Dpkg::Options::=--force-confold dist-upgrade
@@ -15,6 +18,22 @@ cat > /etc/apt/apt.conf.d/20auto-upgrades <<'EOF'
 APT::Periodic::Update-Package-Lists "1";
 APT::Periodic::Unattended-Upgrade "1";
 EOF
+# Kernel security patches need a reboot to take effect; do it unattended at a
+# low-traffic hour and reclaim old kernels/deps.
+cat > /etc/apt/apt.conf.d/52autoreboot.conf <<'EOF'
+Unattended-Upgrade::Automatic-Reboot "true";
+Unattended-Upgrade::Automatic-Reboot-Time "04:00";
+Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";
+Unattended-Upgrade::Remove-Unused-Dependencies "true";
+EOF
+
+# --- journald: cap disk usage ---
+mkdir -p /etc/systemd/journald.conf.d
+cat > /etc/systemd/journald.conf.d/size.conf <<'EOF'
+[Journal]
+SystemMaxUse=200M
+EOF
+systemctl restart systemd-journald
 
 # --- swap (1 GB VPS hits OOM without it) ---
 if [ ! -f /swapfile ]; then
@@ -60,9 +79,19 @@ id deploy >/dev/null 2>&1 || useradd -m -s /bin/bash -G docker deploy
 ufw allow 22/tcp
 ufw --force enable
 
-# --- SSH hardening ---
-sed -i 's/^#*PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config
-systemctl reload ssh
+# --- SSH hardening (key-only; drop-in so re-runs stay idempotent) ---
+if ! grep -qE "^[[:space:]]*Include[[:space:]]+/etc/ssh/sshd_config.d" /etc/ssh/sshd_config; then
+	sed -i '1i Include /etc/ssh/sshd_config.d/*.conf' /etc/ssh/sshd_config
+fi
+mkdir -p /etc/ssh/sshd_config.d
+cat > /etc/ssh/sshd_config.d/99-hardening.conf <<'EOF'
+PasswordAuthentication no
+PermitRootLogin prohibit-password
+MaxAuthTries 3
+LoginGraceTime 30
+X11Forwarding no
+EOF
+sshd -t && systemctl reload ssh
 
 # --- vibes network + base dir ---
 # CI workflows mkdir each /opt/vibes/<app> as deploy, so only the deploy-owned

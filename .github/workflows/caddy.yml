@@ -6,6 +6,7 @@ on:
     paths:
       - 'caddy/**'
       - '.github/workflows/caddy.yml'
+      - '.github/actions/setup-ssh/**'
   workflow_dispatch:
 
 concurrency:
@@ -22,23 +23,28 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Setup SSH
-        env:
-          DEPLOY_SSH_KEY:  ${{ secrets.DEPLOY_SSH_KEY }}
-          DEPLOY_HOST_KEY: ${{ secrets.DEPLOY_HOST_KEY }}
-        run: |
-          set -euo pipefail
-          mkdir -p ~/.ssh && chmod 700 ~/.ssh
-          printf '%s\n' "$DEPLOY_SSH_KEY"  > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
-          printf '%s\n' "$DEPLOY_HOST_KEY" > ~/.ssh/known_hosts && chmod 644 ~/.ssh/known_hosts
+        uses: ./.github/actions/setup-ssh
+        with:
+          deploy-ssh-key: ${{ secrets.DEPLOY_SSH_KEY }}
+          host-key: ${{ secrets.DEPLOY_HOST_KEY }}
 
-      - name: Sync compose + Caddyfile
+      - name: Validate and install compose + Caddyfile
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
         run: |
           set -euo pipefail
           ssh "deploy@$DEPLOY_HOST" 'mkdir -p /opt/vibes/caddy'
-          scp caddy/compose.yml "deploy@$DEPLOY_HOST:/opt/vibes/caddy/compose.yml"
-          scp caddy/Caddyfile   "deploy@$DEPLOY_HOST:/opt/vibes/caddy/Caddyfile"
+          scp caddy/compose.yml "deploy@$DEPLOY_HOST:/opt/vibes/caddy/compose.yml.tmp"
+          scp caddy/Caddyfile   "deploy@$DEPLOY_HOST:/opt/vibes/caddy/Caddyfile.tmp"
+          ssh "deploy@$DEPLOY_HOST" bash -s <<'EOF'
+            set -euo pipefail
+            cd /opt/vibes/caddy
+            trap 'rm -f compose.yml.tmp Caddyfile.tmp' EXIT
+            docker compose -f compose.yml.tmp config --quiet
+            mv -f compose.yml.tmp compose.yml
+            mv -f Caddyfile.tmp Caddyfile
+            trap - EXIT
+          EOF
 
       - name: Write caddy .env on host
         env:
@@ -62,15 +68,15 @@ jobs:
       - name: Up + reload
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-        # `up -d` no-op when image and config unchanged; reload picks up Caddyfile edits.
-        # `--wait` blocks until the (re)created container is healthy — its healthcheck
-        # hits the admin API on :2019, so the subsequent reload can't race a not-yet-up
-        # admin endpoint (which happens when compose.yml changes force a recreate).
+        # The server-side lock serializes Docker mutations across workflows from
+        # different repositories. --wait keeps reload behind Caddy's healthcheck.
         run: |
           set -euo pipefail
-          ssh "deploy@$DEPLOY_HOST" '
-            set -e
+          ssh "deploy@$DEPLOY_HOST" bash -s <<'EOF'
+            set -euo pipefail
+            exec 9>/opt/vibes/.docker-deploy.lock
+            flock -x 9
             cd /opt/vibes/caddy
             docker compose up -d --remove-orphans --wait
             docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile
-          '
+          EOF

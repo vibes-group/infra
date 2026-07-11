@@ -1,0 +1,19 @@
+name: Prune unused Docker images
+description: Prune unused images on the deploy host without racing another Docker deployment.
+
+inputs:
+  deploy-host:
+    required: true
+    description: Deploy server host.
+
+runs:
+  using: composite
+  steps:
+    - name: Prune unused images
+      shell: bash
+      env:
+        DEPLOY_HOST: ${{ inputs.deploy-host }}
+      run: |
+        set -euo pipefail
+        ssh "deploy@$DEPLOY_HOST" \
+          'flock -x /opt/vibes/.docker-deploy.lock docker image prune -af'

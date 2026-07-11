@@ -44,23 +44,27 @@ jobs:
           test -f "apps/$APP/compose.yml"
 
       - name: Setup SSH
-        env:
-          DEPLOY_SSH_KEY:  ${{ secrets.DEPLOY_SSH_KEY }}
-          DEPLOY_HOST_KEY: ${{ secrets.DEPLOY_HOST_KEY }}
-        run: |
-          set -euo pipefail
-          mkdir -p ~/.ssh && chmod 700 ~/.ssh
-          printf '%s\n' "$DEPLOY_SSH_KEY"  > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
-          printf '%s\n' "$DEPLOY_HOST_KEY" > ~/.ssh/known_hosts && chmod 644 ~/.ssh/known_hosts
+        uses: ./.github/actions/setup-ssh
+        with:
+          deploy-ssh-key: ${{ secrets.DEPLOY_SSH_KEY }}
+          host-key: ${{ secrets.DEPLOY_HOST_KEY }}
 
-      - name: Sync compose
+      - name: Validate and install compose
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           APP:         ${{ inputs.app }}
         run: |
           set -euo pipefail
           ssh "deploy@$DEPLOY_HOST" "mkdir -p /opt/vibes/$APP"
-          scp "apps/$APP/compose.yml" "deploy@$DEPLOY_HOST:/opt/vibes/$APP/compose.yml"
+          scp "apps/$APP/compose.yml" "deploy@$DEPLOY_HOST:/opt/vibes/$APP/compose.yml.tmp"
+          ssh "deploy@$DEPLOY_HOST" APP="$APP" bash -s <<'EOF'
+            set -euo pipefail
+            cd "/opt/vibes/$APP"
+            trap 'rm -f compose.yml.tmp' EXIT
+            docker compose -f compose.yml.tmp config --quiet
+            mv -f compose.yml.tmp compose.yml
+            trap - EXIT
+          EOF
 
       - name: Pull and restart
         env:
@@ -70,6 +74,8 @@ jobs:
           set -euo pipefail
           ssh "deploy@$DEPLOY_HOST" APP="$APP" bash -s <<'EOF'
             set -euo pipefail
+            exec 9>/opt/vibes/.docker-deploy.lock
+            flock -x 9
             cd "/opt/vibes/$APP"
             docker compose pull
             docker compose up -d --remove-orphans
@@ -101,11 +107,6 @@ jobs:
 
       - name: Prune unused images
         continue-on-error: true
-        env:
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-        run: |
-          set -euo pipefail
-          # Runs only after the new container is healthy: its image — and every
-          # other running app's image — is referenced and kept; everything else
-          # (old deploys, dangling layers) is reclaimed.
-          ssh "deploy@$DEPLOY_HOST" "docker image prune -af"
+        uses: ./.github/actions/prune-images
+        with:
+          deploy-host: ${{ secrets.DEPLOY_HOST }}

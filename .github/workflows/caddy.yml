@@ -28,24 +28,6 @@ jobs:
           deploy-ssh-key: ${{ secrets.DEPLOY_SSH_KEY }}
           host-key: ${{ secrets.DEPLOY_HOST_KEY }}
 
-      - name: Validate and install compose + Caddyfile
-        env:
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-        run: |
-          set -euo pipefail
-          ssh "deploy@$DEPLOY_HOST" 'mkdir -p /opt/vibes/caddy'
-          scp caddy/compose.yml "deploy@$DEPLOY_HOST:/opt/vibes/caddy/compose.yml.tmp"
-          scp caddy/Caddyfile   "deploy@$DEPLOY_HOST:/opt/vibes/caddy/Caddyfile.tmp"
-          ssh "deploy@$DEPLOY_HOST" bash -s <<'EOF'
-            set -euo pipefail
-            cd /opt/vibes/caddy
-            trap 'rm -f compose.yml.tmp Caddyfile.tmp' EXIT
-            docker compose -f compose.yml.tmp config --quiet
-            mv -f compose.yml.tmp compose.yml
-            mv -f Caddyfile.tmp Caddyfile
-            trap - EXIT
-          EOF
-
       - name: Write caddy .env on host
         env:
           DEPLOY_HOST:        ${{ secrets.DEPLOY_HOST }}
@@ -62,8 +44,36 @@ jobs:
           printf 'SOZVON_HUB_HOST=%s\n'   "$SOZVON_HUB_HOST"   >> .env.caddy
           printf 'CURRENCY_HUB_HOST=%s\n' "$CURRENCY_HUB_HOST" >> .env.caddy
           printf 'OTS_HOST=%s\n'          "$OTS_HOST"          >> .env.caddy
-          scp .env.caddy "deploy@$DEPLOY_HOST:/opt/vibes/caddy/.env"
-          ssh "deploy@$DEPLOY_HOST" 'chmod 600 /opt/vibes/caddy/.env'
+          ssh "deploy@$DEPLOY_HOST" 'mkdir -p /opt/vibes/caddy'
+          scp .env.caddy "deploy@$DEPLOY_HOST:/opt/vibes/caddy/.env.tmp"
+          ssh "deploy@$DEPLOY_HOST" '
+            set -e
+            chmod 600 /opt/vibes/caddy/.env.tmp
+            mv -f /opt/vibes/caddy/.env.tmp /opt/vibes/caddy/.env
+          '
+
+      - name: Validate and install compose + Caddyfile
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          set -euo pipefail
+          scp caddy/compose.yml "deploy@$DEPLOY_HOST:/opt/vibes/caddy/compose.yml.tmp"
+          scp caddy/Caddyfile   "deploy@$DEPLOY_HOST:/opt/vibes/caddy/Caddyfile.tmp"
+          ssh "deploy@$DEPLOY_HOST" bash -s <<'EOF'
+            set -euo pipefail
+            cd /opt/vibes/caddy
+            trap 'rm -f compose.yml.tmp Caddyfile.tmp' EXIT
+            exec 9>/opt/vibes/.docker-deploy.lock
+            flock -x 9
+            docker compose -f compose.yml.tmp config --quiet
+            image=$(docker compose -f compose.yml.tmp config --images | head -n 1)
+            docker run --rm --env-file .env \
+              -v "$PWD/Caddyfile.tmp:/etc/caddy/Caddyfile:ro" \
+              "$image" caddy validate --config /etc/caddy/Caddyfile
+            mv -f compose.yml.tmp compose.yml
+            mv -f Caddyfile.tmp Caddyfile
+            trap - EXIT
+          EOF
 
       - name: Up + reload
         env:

@@ -1,0 +1,27 @@
+name: Setup deploy SSH
+description: Configure the deploy SSH key and pinned host key.
+
+inputs:
+  deploy-ssh-key:
+    required: true
+    description: Private SSH key for the deploy user.
+  host-key:
+    required: true
+    description: Pinned SSH host key entry for known_hosts.
+
+runs:
+  using: composite
+  steps:
+    - name: Configure SSH
+      shell: bash
+      env:
+        DEPLOY_SSH_KEY: ${{ inputs.deploy-ssh-key }}
+        DEPLOY_HOST_KEY: ${{ inputs.host-key }}
+      run: |
+        set -euo pipefail
+        mkdir -p ~/.ssh
+        chmod 700 ~/.ssh
+        printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/id_ed25519
+        chmod 600 ~/.ssh/id_ed25519
+        printf '%s\n' "$DEPLOY_HOST_KEY" > ~/.ssh/known_hosts
+        chmod 644 ~/.ssh/known_hosts

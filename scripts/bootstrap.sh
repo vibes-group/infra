@@ -63,11 +63,6 @@ sysctl --system
 id deploy >/dev/null 2>&1 || useradd -m -s /bin/bash -G docker deploy
 
 install -m 0755 "$script_dir/install-system-config.sh" /usr/local/sbin/vibes-install-system-config
-cat > /etc/sudoers.d/vibes-system-config <<'EOF'
-deploy ALL=(root) NOPASSWD: /usr/local/sbin/vibes-install-system-config /opt/vibes/system-config/*
-EOF
-chmod 0440 /etc/sudoers.d/vibes-system-config
-visudo -cf /etc/sudoers.d/vibes-system-config
 "$script_dir/install-system-config.sh" --bootstrap "$repo_dir"
 
 # --- UFW: SSH only ---

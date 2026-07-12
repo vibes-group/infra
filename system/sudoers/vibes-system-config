@@ -1,0 +1,1 @@
+deploy ALL=(root) NOPASSWD: /usr/local/sbin/vibes-install-system-config /opt/vibes/system-config/*

@@ -92,9 +92,10 @@ jobs:
             exec 9>/opt/vibes/.docker-deploy.lock
             flock -x 9
             cd /opt/vibes/caddy
-            docker compose up -d --remove-orphans --wait
+            # bash -s is reading this script from stdin, so Compose must not consume it.
+            docker compose up -d --remove-orphans --wait </dev/null
             host_sha=$(sha256sum Caddyfile | cut -d' ' -f1)
-            mounted_sha=$(docker compose exec -T caddy sha256sum /etc/caddy/Caddyfile | cut -d' ' -f1)
+            mounted_sha=$(docker compose exec -T caddy sha256sum /etc/caddy/Caddyfile </dev/null | cut -d' ' -f1)
             echo "Caddyfile SHA: host=$host_sha mounted=$mounted_sha"
             if [ "$host_sha" != "$mounted_sha" ]; then
               for i in $(seq 1 24); do
@@ -108,13 +109,13 @@ jobs:
                 sleep 15
               done
               [ "$status" -eq 0 ] || exit 1
-              docker compose stop caddy
-              docker compose rm -f caddy
-              docker compose up -d --no-deps --wait caddy
+              docker compose stop caddy </dev/null
+              docker compose rm -f caddy </dev/null
+              docker compose up -d --no-deps --wait caddy </dev/null
             fi
-            mounted_sha=$(docker compose exec -T caddy sha256sum /etc/caddy/Caddyfile | cut -d' ' -f1)
+            mounted_sha=$(docker compose exec -T caddy sha256sum /etc/caddy/Caddyfile </dev/null | cut -d' ' -f1)
             test "$host_sha" = "$mounted_sha"
-            docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile
+            docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile </dev/null
           EOF
 
       - name: Verify internal routes are private

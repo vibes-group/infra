@@ -13,7 +13,7 @@ scripts/bootstrap.sh                  # server setup (идемпотентен)
 .github/workflows/deploy.yml          # reusable: scp compose, pull, up, health
 .github/workflows/deploy-static.yml   # reusable: static SPA publish
 .github/workflows/caddy.yml           # caddy/** → redeploy Caddy
-.github/workflows/system-config.yml   # system/** → apply через ограниченный sudo
+.github/workflows/system-config.yml   # system/** → только тесты (применяется вручную)
 ```
 
 ## Контракт app репо
@@ -55,8 +55,9 @@ ssh root@<host> 'bash /tmp/vibes-bootstrap/scripts/bootstrap.sh'
 ```
 
 После — добавить deploy pubkey в `~deploy/.ssh/authorized_keys`.
-Bootstrap устанавливает единственную sudo-команду для `deploy`; последующие
-изменения `system/**` применяются workflow автоматически.
+У `deploy` нет sudo. Системный конфиг (`system/**`, `install-system-config.sh`,
+`reboot-if-idle.sh`) — root-owned и применяется вручную повторным запуском
+bootstrap от root; CI его только тестирует, но не деплоит.
 
 ## Подключить новое приложение
 

@@ -27,7 +27,6 @@ scripts/reboot-if-idle.sh
 system/apt/20auto-upgrades.conf
 system/apt/51docker-upgrades.conf
 system/apt/52autoreboot.conf
-system/sudoers/vibes-system-config
 system/systemd/apt-daily.timer.d/vibes.conf
 system/systemd/apt-daily-upgrade.timer.d/vibes.conf
 system/systemd/vibes-reboot-if-idle.service
@@ -39,15 +38,10 @@ printf '%s\n' "$required_files" | while IFS= read -r file; do
 	}
 done
 
-if [ -z "$root" ]; then
-	visudo -cf "$source_dir/system/sudoers/vibes-system-config" >/dev/null
-fi
-
 install -D -m 0755 "$source_dir/scripts/reboot-if-idle.sh" "$root/usr/local/sbin/vibes-reboot-if-idle"
 install -D -m 0644 "$source_dir/system/apt/20auto-upgrades.conf" "$root/etc/apt/apt.conf.d/20auto-upgrades"
 install -D -m 0644 "$source_dir/system/apt/51docker-upgrades.conf" "$root/etc/apt/apt.conf.d/51docker-upgrades.conf"
 install -D -m 0644 "$source_dir/system/apt/52autoreboot.conf" "$root/etc/apt/apt.conf.d/52autoreboot.conf"
-install -D -m 0440 "$source_dir/system/sudoers/vibes-system-config" "$root/etc/sudoers.d/vibes-system-config"
 install -D -m 0644 "$source_dir/system/systemd/apt-daily.timer.d/vibes.conf" "$root/etc/systemd/system/apt-daily.timer.d/vibes.conf"
 install -D -m 0644 "$source_dir/system/systemd/apt-daily-upgrade.timer.d/vibes.conf" "$root/etc/systemd/system/apt-daily-upgrade.timer.d/vibes.conf"
 install -D -m 0644 "$source_dir/system/systemd/vibes-reboot-if-idle.service" "$root/etc/systemd/system/vibes-reboot-if-idle.service"

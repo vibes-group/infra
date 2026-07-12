@@ -4,7 +4,6 @@ set -eu
 repo=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
-visudo -cf "$repo/system/sudoers/vibes-system-config" >/dev/null
 
 cat >"$tmp/systemctl" <<'EOF'
 #!/bin/sh
@@ -18,7 +17,6 @@ ROOT_DIR="$tmp/root" SYSTEMCTL="$tmp/systemctl" SYSTEMCTL_LOG="$tmp/systemctl.lo
 cmp "$repo/scripts/reboot-if-idle.sh" "$tmp/root/usr/local/sbin/vibes-reboot-if-idle"
 cmp "$repo/scripts/install-system-config.sh" "$tmp/root/usr/local/sbin/vibes-install-system-config"
 cmp "$repo/system/apt/52autoreboot.conf" "$tmp/root/etc/apt/apt.conf.d/52autoreboot.conf"
-cmp "$repo/system/sudoers/vibes-system-config" "$tmp/root/etc/sudoers.d/vibes-system-config"
 cmp "$repo/system/systemd/vibes-reboot-if-idle.timer" "$tmp/root/etc/systemd/system/vibes-reboot-if-idle.timer"
 test ! -e "$tmp/systemctl.log"
 

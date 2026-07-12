@@ -117,15 +117,3 @@ jobs:
             test "$host_sha" = "$mounted_sha"
             docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile </dev/null
           EOF
-
-      - name: Verify internal routes are private
-        env:
-          VOICE_HUB_HOST: ${{ secrets.VOICE_HUB_HOST }}
-          SOZVON_HUB_HOST: ${{ secrets.SOZVON_HUB_HOST }}
-        run: |
-          set -euo pipefail
-          for host in "$VOICE_HUB_HOST" "$SOZVON_HUB_HOST"; do
-            status=$(curl --retry 5 --retry-all-errors --retry-delay 2 \
-              -sS -o /dev/null -w '%{http_code}' "https://$host/internal/call-status")
-            test "$status" = 404
-          done

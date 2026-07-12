@@ -39,6 +39,7 @@ services:
       TURN_RELAY_PORT_MAX: "${TURN_RELAY_PORT_MAX:-49279}"
     expose:
       - "8080"
+      - "8081"
     ports:
       - "${TURN_PORT:-3480}:${TURN_PORT:-3480}/udp"
       - "${UDP_PORT_MIN:-10301}-${UDP_PORT_MAX:-10400}:${UDP_PORT_MIN:-10301}-${UDP_PORT_MAX:-10400}/udp"

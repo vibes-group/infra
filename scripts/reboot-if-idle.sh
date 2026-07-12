@@ -16,7 +16,7 @@ check_calls() {
 	fi
 
 	for app in voice-hub-app sozvon-hub-app; do
-		if ! status=$(timeout 10 docker exec "$caddy" wget -qO- "http://$app:8080/internal/call-status"); then
+		if ! status=$(timeout 10 docker exec "$caddy" wget -qO- "http://$app:8081/internal/call-status"); then
 			log "reboot deferred: $app call status is unavailable"
 			return 1
 		fi

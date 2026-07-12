@@ -7,11 +7,13 @@
 ```
 apps/<app>/compose.yml                # stack каждого приложения
 caddy/                                # reverse proxy
+system/                               # apt + systemd source of truth
 scripts/bootstrap.sh                  # server setup (идемпотентен)
 .github/actions/write-env/            # composite: app пишет свой .env на хост
 .github/workflows/deploy.yml          # reusable: scp compose, pull, up, health
 .github/workflows/deploy-static.yml   # reusable: static SPA publish
 .github/workflows/caddy.yml           # caddy/** → redeploy Caddy
+.github/workflows/system-config.yml   # system/** → apply через ограниченный sudo
 ```
 
 ## Контракт app репо
@@ -48,11 +50,13 @@ services:
 
 ```
 ssh root@<host> 'mkdir -p /tmp/vibes-bootstrap'
-scp scripts/bootstrap.sh scripts/reboot-if-idle.sh root@<host>:/tmp/vibes-bootstrap/
-ssh root@<host> 'bash /tmp/vibes-bootstrap/bootstrap.sh'
+scp -r scripts system root@<host>:/tmp/vibes-bootstrap/
+ssh root@<host> 'bash /tmp/vibes-bootstrap/scripts/bootstrap.sh'
 ```
 
 После — добавить deploy pubkey в `~deploy/.ssh/authorized_keys`.
+Bootstrap устанавливает единственную sudo-команду для `deploy`; последующие
+изменения `system/**` применяются workflow автоматически.
 
 ## Подключить новое приложение
 

@@ -1,0 +1,9 @@
+[Unit]
+Description=Reboot after upgrades when call services are idle
+After=docker.service
+Requires=docker.service
+ConditionPathExists=/run/reboot-required
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/vibes-reboot-if-idle

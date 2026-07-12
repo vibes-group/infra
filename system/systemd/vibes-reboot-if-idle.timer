@@ -1,0 +1,9 @@
+[Unit]
+Description=Check whether an upgrade reboot is safe
+
+[Timer]
+OnCalendar=*-*-* 00..02:00/15
+RandomizedDelaySec=2m
+
+[Install]
+WantedBy=timers.target

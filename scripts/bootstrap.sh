@@ -1,11 +1,12 @@
 #!/bin/bash
 # One-shot VPS bootstrap. Idempotent.
 #
-# Copy this file and reboot-if-idle.sh into one directory, then run as root.
+# Copy scripts/ and system/ together, then run as root.
 set -euo pipefail
 
 export DEBIAN_FRONTEND=noninteractive
 script_dir=$(cd -- "$(dirname -- "$0")" && pwd)
+repo_dir=$(cd -- "$script_dir/.." && pwd)
 
 # --- timezone: UTC on all servers (uniform logs) ---
 timedatectl set-timezone UTC
@@ -13,64 +14,7 @@ timedatectl set-timezone UTC
 # --- base system: full patch + automatic security updates ---
 apt-get update
 apt-get -y -o Dpkg::Options::=--force-confold dist-upgrade
-apt-get install -y unattended-upgrades ufw curl ca-certificates
-cat > /etc/apt/apt.conf.d/20auto-upgrades <<'EOF'
-APT::Periodic::Update-Package-Lists "1";
-APT::Periodic::Unattended-Upgrade "1";
-EOF
-# Docker's upstream repository is outside Debian's default allowed origins.
-cat > /etc/apt/apt.conf.d/51docker-upgrades.conf <<'EOF'
-Unattended-Upgrade::Origins-Pattern {
-        "origin=Docker,label=Docker CE";
-};
-EOF
-# Reboots are handled separately after checking both call services.
-cat > /etc/apt/apt.conf.d/52autoreboot.conf <<'EOF'
-Unattended-Upgrade::Automatic-Reboot "false";
-Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";
-Unattended-Upgrade::Remove-Unused-Dependencies "true";
-EOF
-mkdir -p /etc/systemd/system/apt-daily.timer.d
-cat > /etc/systemd/system/apt-daily.timer.d/vibes.conf <<'EOF'
-[Timer]
-OnCalendar=
-OnCalendar=*-*-* 22:00
-RandomizedDelaySec=15m
-EOF
-mkdir -p /etc/systemd/system/apt-daily-upgrade.timer.d
-cat > /etc/systemd/system/apt-daily-upgrade.timer.d/vibes.conf <<'EOF'
-[Timer]
-OnCalendar=
-OnCalendar=*-*-* 23:00
-RandomizedDelaySec=15m
-EOF
-
-install -m 0755 "$script_dir/reboot-if-idle.sh" /usr/local/sbin/vibes-reboot-if-idle
-cat > /etc/systemd/system/vibes-reboot-if-idle.service <<'EOF'
-[Unit]
-Description=Reboot after upgrades when call services are idle
-After=docker.service
-Requires=docker.service
-ConditionPathExists=/run/reboot-required
-
-[Service]
-Type=oneshot
-ExecStart=/usr/local/sbin/vibes-reboot-if-idle
-EOF
-cat > /etc/systemd/system/vibes-reboot-if-idle.timer <<'EOF'
-[Unit]
-Description=Check whether an upgrade reboot is safe
-
-[Timer]
-OnCalendar=*-*-* 00..02:00/15
-RandomizedDelaySec=2m
-
-[Install]
-WantedBy=timers.target
-EOF
-systemctl daemon-reload
-systemctl restart apt-daily.timer apt-daily-upgrade.timer
-systemctl enable --now vibes-reboot-if-idle.timer
+apt-get install -y unattended-upgrades ufw curl ca-certificates sudo
 
 # --- journald: cap disk usage ---
 mkdir -p /etc/systemd/journald.conf.d
@@ -117,6 +61,14 @@ sysctl --system
 
 # --- non-root deploy user ---
 id deploy >/dev/null 2>&1 || useradd -m -s /bin/bash -G docker deploy
+
+install -m 0755 "$script_dir/install-system-config.sh" /usr/local/sbin/vibes-install-system-config
+cat > /etc/sudoers.d/vibes-system-config <<'EOF'
+deploy ALL=(root) NOPASSWD: /usr/local/sbin/vibes-install-system-config /opt/vibes/system-config/*
+EOF
+chmod 0440 /etc/sudoers.d/vibes-system-config
+visudo -cf /etc/sudoers.d/vibes-system-config
+"$script_dir/install-system-config.sh" --bootstrap "$repo_dir"
 
 # --- UFW: SSH only ---
 # App ports are docker-published; userland-proxy:false makes docker's DNAT bypass

@@ -95,6 +95,7 @@ jobs:
             docker compose up -d --remove-orphans --wait
             host_sha=$(sha256sum Caddyfile | cut -d' ' -f1)
             mounted_sha=$(docker compose exec -T caddy sha256sum /etc/caddy/Caddyfile | cut -d' ' -f1)
+            echo "Caddyfile SHA: host=$host_sha mounted=$mounted_sha"
             if [ "$host_sha" != "$mounted_sha" ]; then
               for i in $(seq 1 24); do
                 set +e
@@ -107,7 +108,9 @@ jobs:
                 sleep 15
               done
               [ "$status" -eq 0 ] || exit 1
-              docker compose up -d --force-recreate --no-deps --wait caddy
+              docker compose stop caddy
+              docker compose rm -f caddy
+              docker compose up -d --no-deps --wait caddy
             fi
             mounted_sha=$(docker compose exec -T caddy sha256sum /etc/caddy/Caddyfile | cut -d' ' -f1)
             test "$host_sha" = "$mounted_sha"

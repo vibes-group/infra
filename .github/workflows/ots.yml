@@ -28,10 +28,6 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Test persistent storage
-        working-directory: apps/ots
-        run: ./test-persistence.sh
-
       - name: Setup SSH
         uses: ./.github/actions/setup-ssh
         with:

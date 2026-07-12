@@ -18,14 +18,36 @@ cat > /etc/apt/apt.conf.d/20auto-upgrades <<'EOF'
 APT::Periodic::Update-Package-Lists "1";
 APT::Periodic::Unattended-Upgrade "1";
 EOF
-# Kernel security patches need a reboot to take effect; do it unattended at a
-# low-traffic hour and reclaim old kernels/deps.
+# Docker's upstream repository is outside Debian's default allowed origins.
+cat > /etc/apt/apt.conf.d/51docker-upgrades.conf <<'EOF'
+Unattended-Upgrade::Origins-Pattern {
+        "origin=Docker,label=Docker CE";
+};
+EOF
+# Keep package refresh, daemon restarts and any required reboot in one
+# low-traffic maintenance window.
 cat > /etc/apt/apt.conf.d/52autoreboot.conf <<'EOF'
 Unattended-Upgrade::Automatic-Reboot "true";
 Unattended-Upgrade::Automatic-Reboot-Time "04:00";
 Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";
 Unattended-Upgrade::Remove-Unused-Dependencies "true";
 EOF
+mkdir -p /etc/systemd/system/apt-daily.timer.d
+cat > /etc/systemd/system/apt-daily.timer.d/vibes.conf <<'EOF'
+[Timer]
+OnCalendar=
+OnCalendar=*-*-* 02:00
+RandomizedDelaySec=30m
+EOF
+mkdir -p /etc/systemd/system/apt-daily-upgrade.timer.d
+cat > /etc/systemd/system/apt-daily-upgrade.timer.d/vibes.conf <<'EOF'
+[Timer]
+OnCalendar=
+OnCalendar=*-*-* 03:00
+RandomizedDelaySec=30m
+EOF
+systemctl daemon-reload
+systemctl restart apt-daily.timer apt-daily-upgrade.timer
 
 # --- journald: cap disk usage ---
 mkdir -p /etc/systemd/journald.conf.d

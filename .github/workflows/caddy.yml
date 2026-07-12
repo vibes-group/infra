@@ -71,7 +71,12 @@ jobs:
               -v "$PWD/Caddyfile.tmp:/etc/caddy/Caddyfile:ro" \
               "$image" caddy validate --config /etc/caddy/Caddyfile
             mv -f compose.yml.tmp compose.yml
-            mv -f Caddyfile.tmp Caddyfile
+            if [ -e Caddyfile ]; then
+              cp Caddyfile.tmp Caddyfile
+              rm Caddyfile.tmp
+            else
+              mv Caddyfile.tmp Caddyfile
+            fi
             trap - EXIT
           EOF
 
@@ -88,5 +93,35 @@ jobs:
             flock -x 9
             cd /opt/vibes/caddy
             docker compose up -d --remove-orphans --wait
+            host_sha=$(sha256sum Caddyfile | cut -d' ' -f1)
+            mounted_sha=$(docker compose exec -T caddy sha256sum /etc/caddy/Caddyfile | cut -d' ' -f1)
+            if [ "$host_sha" != "$mounted_sha" ]; then
+              for i in $(seq 1 24); do
+                set +e
+                /usr/local/sbin/vibes-reboot-if-idle --check
+                status=$?
+                set -e
+                [ "$status" -eq 0 ] && break
+                [ "$status" -eq 2 ] || exit "$status"
+                echo "attempt $i: active call, retrying in 15s..."
+                sleep 15
+              done
+              [ "$status" -eq 0 ] || exit 1
+              docker compose up -d --force-recreate --no-deps --wait caddy
+            fi
+            mounted_sha=$(docker compose exec -T caddy sha256sum /etc/caddy/Caddyfile | cut -d' ' -f1)
+            test "$host_sha" = "$mounted_sha"
             docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile
           EOF
+
+      - name: Verify internal routes are private
+        env:
+          VOICE_HUB_HOST: ${{ secrets.VOICE_HUB_HOST }}
+          SOZVON_HUB_HOST: ${{ secrets.SOZVON_HUB_HOST }}
+        run: |
+          set -euo pipefail
+          for host in "$VOICE_HUB_HOST" "$SOZVON_HUB_HOST"; do
+            status=$(curl --retry 5 --retry-all-errors --retry-delay 2 \
+              -sS -o /dev/null -w '%{http_code}' "https://$host/internal/call-status")
+            test "$status" = 404
+          done

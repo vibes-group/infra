@@ -47,8 +47,9 @@ services:
 ## Bootstrap
 
 ```
-scp scripts/bootstrap.sh root@<host>:/tmp/
-ssh root@<host> 'bash /tmp/bootstrap.sh'
+ssh root@<host> 'mkdir -p /tmp/vibes-bootstrap'
+scp scripts/bootstrap.sh scripts/reboot-if-idle.sh root@<host>:/tmp/vibes-bootstrap/
+ssh root@<host> 'bash /tmp/vibes-bootstrap/bootstrap.sh'
 ```
 
 После — добавить deploy pubkey в `~deploy/.ssh/authorized_keys`.

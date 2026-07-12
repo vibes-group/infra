@@ -14,7 +14,7 @@ timedatectl set-timezone UTC
 # --- base system: full patch + automatic security updates ---
 apt-get update
 apt-get -y -o Dpkg::Options::=--force-confold dist-upgrade
-apt-get install -y unattended-upgrades ufw curl ca-certificates sudo
+apt-get install -y unattended-upgrades ufw curl ca-certificates
 
 # --- journald: cap disk usage ---
 mkdir -p /etc/systemd/journald.conf.d

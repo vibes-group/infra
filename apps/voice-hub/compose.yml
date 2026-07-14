@@ -7,6 +7,10 @@ networks:
     name: vibes_net
     external: true
 
+volumes:
+  updates:
+    name: voice-hub-updates
+
 services:
   voice-hub-data-init:
     image: busybox:1.37
@@ -43,6 +47,7 @@ services:
       - "${TURN_RELAY_PORT_MIN:-49160}-${TURN_RELAY_PORT_MAX:-49199}:${TURN_RELAY_PORT_MIN:-49160}-${TURN_RELAY_PORT_MAX:-49199}/udp"
     volumes:
       - ./data:/app/data
+      - updates:/app/updates:ro
     security_opt:
       - no-new-privileges:true
     read_only: true

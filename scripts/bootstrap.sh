@@ -14,7 +14,7 @@ timedatectl set-timezone UTC
 # --- base system: full patch + automatic security updates ---
 apt-get update
 apt-get -y -o Dpkg::Options::=--force-confold dist-upgrade
-apt-get install -y unattended-upgrades ufw fail2ban curl ca-certificates
+apt-get install -y unattended-upgrades ufw fail2ban nftables curl ca-certificates
 
 # --- journald: cap disk usage ---
 mkdir -p /etc/systemd/journald.conf.d
@@ -92,7 +92,9 @@ EOF
 sshd -t && systemctl reload ssh
 
 # --- fail2ban: sshd jail, bans escalate 1d → 4w on repeat ---
-# banaction (nftables) comes from the packaged jail.d/defaults-debian.conf.
+# banaction (nftables) comes from the packaged jail.d/defaults-debian.conf. The nftables
+# package is in the install list above on purpose: without it fail2ban keeps its own ban
+# database and reports success, but no rule ever reaches the kernel.
 mkdir -p /etc/fail2ban/jail.d
 cat > /etc/fail2ban/jail.d/sshd.local <<'EOF'
 [DEFAULT]

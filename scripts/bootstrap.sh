@@ -14,7 +14,7 @@ timedatectl set-timezone UTC
 # --- base system: full patch + automatic security updates ---
 apt-get update
 apt-get -y -o Dpkg::Options::=--force-confold dist-upgrade
-apt-get install -y unattended-upgrades ufw curl ca-certificates
+apt-get install -y unattended-upgrades ufw fail2ban curl ca-certificates
 
 # --- journald: cap disk usage ---
 mkdir -p /etc/systemd/journald.conf.d
@@ -48,14 +48,17 @@ cat > /etc/docker/daemon.json <<'EOF'
 EOF
 systemctl restart docker
 
-# --- kernel tuning (UDP for pion + QUIC) ---
-cat > /etc/sysctl.d/99-vibes.conf <<'EOF'
+# --- kernel tuning (UDP for pion + QUIC; bbr for browser-facing TLS) ---
+rm -f /etc/sysctl.d/99-vibes.conf
+cat > /etc/sysctl.d/99-tuning.conf <<'EOF'
+vm.swappiness = 10
+net.core.default_qdisc = fq
+net.ipv4.tcp_congestion_control = bbr
 net.core.rmem_max = 7340032
 net.core.wmem_max = 7340032
 net.core.rmem_default = 1048576
 net.core.wmem_default = 1048576
 net.core.netdev_max_backlog = 5000
-vm.swappiness = 10
 EOF
 sysctl --system
 
@@ -71,12 +74,15 @@ install -m 0755 "$script_dir/install-system-config.sh" /usr/local/sbin/vibes-ins
 ufw allow 22/tcp
 ufw --force enable
 
-# --- SSH hardening (key-only; drop-in so re-runs stay idempotent) ---
+# --- SSH access policy (key-only; drop-in so re-runs stay idempotent) ---
+# sshd honours the FIRST occurrence of a directive and Include sits on line 1,
+# so a lower-numbered drop-in wins. Keep exactly one file here.
 if ! grep -qE "^[[:space:]]*Include[[:space:]]+/etc/ssh/sshd_config.d" /etc/ssh/sshd_config; then
 	sed -i '1i Include /etc/ssh/sshd_config.d/*.conf' /etc/ssh/sshd_config
 fi
 mkdir -p /etc/ssh/sshd_config.d
-cat > /etc/ssh/sshd_config.d/99-hardening.conf <<'EOF'
+rm -f /etc/ssh/sshd_config.d/99-hardening.conf
+cat > /etc/ssh/sshd_config.d/10-access.conf <<'EOF'
 PasswordAuthentication no
 PermitRootLogin prohibit-password
 MaxAuthTries 3
@@ -84,6 +90,26 @@ LoginGraceTime 30
 X11Forwarding no
 EOF
 sshd -t && systemctl reload ssh
+
+# --- fail2ban: sshd jail, bans escalate 1d → 4w on repeat ---
+# banaction (nftables) comes from the packaged jail.d/defaults-debian.conf.
+mkdir -p /etc/fail2ban/jail.d
+cat > /etc/fail2ban/jail.d/sshd.local <<'EOF'
+[DEFAULT]
+bantime = 1d
+findtime = 10m
+maxretry = 3
+bantime.increment = true
+bantime.factor = 2
+bantime.maxtime = 4w
+ignoreip = 127.0.0.1/8 ::1
+
+[sshd]
+enabled = true
+backend = systemd
+EOF
+systemctl enable --now fail2ban
+fail2ban-client reload
 
 # --- vibes network + base dir ---
 # CI workflows mkdir each /opt/vibes/<app> as deploy, so only the deploy-owned

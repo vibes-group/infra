@@ -8,8 +8,9 @@ One server; each app is a Docker Compose stack behind Caddy, rolled out via reus
 
 - `apps/<app>/compose.yml` — app stack (existing ones are the reference examples).
 - `caddy/` — reverse proxy; `caddy.yml` redeploys it on `caddy/**`.
-- `system/` — apt + systemd source of truth; `system-config.yml` only tests it. System config is root-owned and applied manually by re-running bootstrap as root.
 - `deploy.yml` (reusable) — ship compose to host, pull, up, wait for health; `deploy-static.yml` — static SPA publish; `actions/write-env` — app repo writes its `.env` on the host.
+
+Host configuration is out of scope here: this repo deploys stacks onto a server that is already set up. Expected to exist on the host: the network `vibes_net`, `/opt/vibes`, and `/usr/local/sbin/vibes-reboot-if-idle` (`caddy.yml` calls it to avoid redeploying mid-call).
 
 ## App contract
 
@@ -23,8 +24,6 @@ One server; each app is a Docker Compose stack behind Caddy, rolled out via reus
 Wiring a new app: compose per contract → vhost `{$<APP>_HOST} { reverse_proxy <app>-app:8080 }` in `caddy/Caddyfile` → org secret `<APP>_HOST` with the public domain (scope: infra + app repo) → app-repo workflow with jobs `build` → `write-env` (uses `infra/.github/actions/write-env`) → `deploy` (uses `infra/.github/workflows/deploy.yml`).
 
 ## Server ops
-
-Bootstrap: `scp -r scripts system root@<host>:/tmp/vibes-bootstrap/`, run `scripts/bootstrap.sh` as root, then add the deploy pubkey to `~deploy/.ssh/authorized_keys`. The `deploy` user has no sudo.
 
 Rollback — rebuild and roll out an old commit:
 

@@ -64,3 +64,14 @@
 		file_server
 	}
 }
+
+# Share HTTP-01 validation with host services using certbot webroot.
+:80 {
+	handle /.well-known/acme-challenge/* {
+		root * /srv/acme
+		file_server
+	}
+	handle {
+		respond 404
+	}
+}

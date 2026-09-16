@@ -30,5 +30,6 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - ./data:/data
       - /opt/vibes/web:/srv/web:ro
+      - /var/www/acme:/srv/acme:ro
     security_opt:
       - no-new-privileges:true

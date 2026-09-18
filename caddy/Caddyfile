@@ -1,8 +1,19 @@
 # Caddy serves browser TLS direct (Let's Encrypt). No CDN in front.
 # Common header set + cache rules reused per host via snippet.
+#
+# TLS is served on 8443 and reached over loopback, so the client address arrives in a PROXY
+# header instead of on the connection. The apps rate-limit per client address and log it, so
+# they need the real one.
 {
-	servers {
-		protocols h1 h2 h3
+	servers :8443 {
+		listener_wrappers {
+			proxy_protocol {
+				allow 127.0.0.1/32 {$VIBES_NET_SUBNET:10.200.200.0/24}
+			}
+			tls
+		}
+		# HTTP/3 needs a UDP listener on the port the browser dials.
+		protocols h1 h2
 	}
 }
 
@@ -17,6 +28,15 @@
 	}
 }
 
+(le_http01) {
+	# Port 80 carries the only challenge this deployment can answer.
+	tls {
+		issuer acme {
+			disable_tlsalpn_challenge
+		}
+	}
+}
+
 (spa_cache) {
 	@vendor path /vendor/*
 	header @vendor Cache-Control "public, max-age=31536000, immutable"
@@ -28,7 +48,8 @@
 	header @html Cache-Control "no-cache"
 }
 
-{$VOICE_HUB_HOST} {
+https://{$VOICE_HUB_HOST}:8443 {
+	import le_http01
 	encode zstd gzip
 	import common_headers
 	header Permissions-Policy "microphone=(self), camera=(self), display-capture=(self), geolocation=()"
@@ -37,7 +58,8 @@
 	reverse_proxy voice-hub-app:8080
 }
 
-{$SOZVON_HUB_HOST} {
+https://{$SOZVON_HUB_HOST}:8443 {
+	import le_http01
 	encode zstd gzip
 	import common_headers
 	header Permissions-Policy "microphone=(self), camera=(self), display-capture=(self), geolocation=()"
@@ -46,13 +68,15 @@
 	reverse_proxy sozvon-hub-app:8080
 }
 
-{$OTS_HOST} {
+https://{$OTS_HOST}:8443 {
+	import le_http01
 	encode zstd gzip
 	import common_headers
 	reverse_proxy ots-app:3000
 }
 
-{$CURRENCY_HUB_HOST} {
+https://{$CURRENCY_HUB_HOST}:8443 {
+	import le_http01
 	encode zstd gzip
 	import common_headers
 	header Content-Security-Policy "default-src 'self'; connect-src 'self' https:; script-src 'self'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"

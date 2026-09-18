@@ -74,7 +74,7 @@ jobs:
           ssh "deploy@$DEPLOY_HOST" bash -s <<'EOF'
             set -euo pipefail
             for i in $(seq 1 30); do
-              if docker run --rm --network vibes_net busybox:1.37 \
+              if docker run --rm --network vibes_net busybox:1.38 \
                    wget -qO- http://ots-app:3000/ >/dev/null 2>&1; then
                 echo "ots healthy on attempt $i"
                 exit 0

@@ -9,7 +9,7 @@ networks:
 
 services:
   sozvon-hub-data-init:
-    image: busybox:1.37
+    image: busybox:1.38
     command: ["sh", "-c", "mkdir -p /app/data && chown -R 10001:10001 /app/data"]
     volumes:
       - ./data:/app/data

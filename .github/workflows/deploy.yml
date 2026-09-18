@@ -9,6 +9,11 @@ on:
         required: true
         type: string
         description: "App slug. Must match apps/<app>/compose.yml."
+      wait-for-idle:
+        required: false
+        default: false
+        type: boolean
+        description: "Hold the rollout until no call is running. For apps that carry calls."
     secrets:
       DEPLOY_HOST:     { required: true }
       DEPLOY_SSH_KEY:  { required: true }
@@ -65,6 +70,17 @@ jobs:
             mv -f compose.yml.tmp compose.yml
             trap - EXIT
           EOF
+
+      # Recreating the container drops every call the app is carrying, so the rollout waits
+      # for the rooms to empty, the same way a reboot does. The guard reports the whole host,
+      # which is one hub more than this deploy touches — erring towards waiting.
+      - name: Wait for calls to end
+        if: inputs.wait-for-idle
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          set -euo pipefail
+          ssh "deploy@$DEPLOY_HOST" /usr/local/sbin/vibes-reboot-if-idle --wait
 
       - name: Pull and restart
         env:

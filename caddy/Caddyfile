@@ -6,6 +6,18 @@
 # header is read only from the app network, which is where the connection is seen to come
 # from — a published port reaches a container through its bridge, never over loopback.
 {
+	# The admin API's one caller is this stack's health check, whose line every thirty seconds
+	# would be the whole log. Dropped from the default logger and taken back at ERROR, because a
+	# config the running server rejects is reported there and nowhere else on the host.
+	log default {
+		exclude admin.api
+	}
+
+	log admin {
+		include admin.api
+		level ERROR
+	}
+
 	# Caddy aims its own redirect at the port its TLS listener holds, which is not the port a
 	# browser dials here; the HTTP site below sends them to the right one.
 	auto_https disable_redirects

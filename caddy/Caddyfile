@@ -5,6 +5,9 @@
 # header instead of on the connection. The apps rate-limit per client address and log it, so
 # they need the real one.
 {
+	# Caddy aims its own redirect at the port its TLS listener holds, which is not the port a
+	# browser dials here; the HTTP site below sends them to the right one.
+	auto_https disable_redirects
 	servers :8443 {
 		listener_wrappers {
 			proxy_protocol {
@@ -95,6 +98,13 @@ https://{$CURRENCY_HUB_HOST}:8443 {
 		root * /srv/acme
 		file_server
 	}
+
+	@apps host {$VOICE_HUB_HOST} {$SOZVON_HUB_HOST} {$OTS_HOST} {$CURRENCY_HUB_HOST}
+	handle @apps {
+		redir https://{host}{uri} permanent
+	}
+
+	# Anything else, the bare address included, learns nothing from us.
 	handle {
 		respond 404
 	}

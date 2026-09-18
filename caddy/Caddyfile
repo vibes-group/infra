@@ -1,9 +1,10 @@
 # Caddy serves browser TLS direct (Let's Encrypt). No CDN in front.
 # Common header set + cache rules reused per host via snippet.
 #
-# TLS is served on 8443 and reached over loopback, so the client address arrives in a PROXY
-# header instead of on the connection. The apps rate-limit per client address and log it, so
-# they need the real one.
+# TLS is served on 8443, so the client address arrives in a PROXY header instead of on the
+# connection: the apps rate-limit per client address and log it, and need the real one. The
+# header is read only from the app network, which is where the connection is seen to come
+# from — a published port reaches a container through its bridge, never over loopback.
 {
 	# Caddy aims its own redirect at the port its TLS listener holds, which is not the port a
 	# browser dials here; the HTTP site below sends them to the right one.
@@ -11,7 +12,7 @@
 	servers :8443 {
 		listener_wrappers {
 			proxy_protocol {
-				allow 127.0.0.1/32 {$VIBES_NET_SUBNET:10.200.200.0/24}
+				allow {$VIBES_NET_SUBNET:10.200.200.0/24}
 			}
 			tls
 		}

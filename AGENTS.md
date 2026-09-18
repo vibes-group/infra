@@ -41,6 +41,5 @@ gh workflow run <build-workflow>.yml --ref <old-sha-or-tag> --repo vibes-group/<
 ## Git
 
 - Conventional commits: `fix:`, `chore:`, `docs:`, `ci:`.
-- No `--amend` on published commits, no `--force-push` to `master`.
 - Don't mix deploy/config changes with unrelated refactors.
 - Before commit: sanity-check YAML / compose / dry-run if applicable.

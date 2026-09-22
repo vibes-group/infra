@@ -35,6 +35,8 @@ jobs:
           SOZVON_HUB_HOST:    ${{ secrets.SOZVON_HUB_HOST }}
           CURRENCY_HUB_HOST:  ${{ secrets.CURRENCY_HUB_HOST }}
           OTS_HOST:           ${{ secrets.OTS_HOST }}
+          # Only on a host that relays another server's services; empty elsewhere.
+          ACME_RELAY_UPSTREAM: ${{ secrets.ACME_RELAY_UPSTREAM }}
         run: |
           set -euo pipefail
           umask 077
@@ -44,6 +46,7 @@ jobs:
           printf 'SOZVON_HUB_HOST=%s\n'   "$SOZVON_HUB_HOST"   >> .env.caddy
           printf 'CURRENCY_HUB_HOST=%s\n' "$CURRENCY_HUB_HOST" >> .env.caddy
           printf 'OTS_HOST=%s\n'          "$OTS_HOST"          >> .env.caddy
+          printf 'ACME_RELAY_UPSTREAM=%s\n' "$ACME_RELAY_UPSTREAM" >> .env.caddy
           ssh "deploy@$DEPLOY_HOST" 'mkdir -p /opt/vibes/caddy'
           scp .env.caddy "deploy@$DEPLOY_HOST:/opt/vibes/caddy/.env.tmp"
           ssh "deploy@$DEPLOY_HOST" '

@@ -28,6 +28,9 @@ services:
       SOZVON_HUB_HOST: "${SOZVON_HUB_HOST:?SOZVON_HUB_HOST is required}"
       CURRENCY_HUB_HOST: "${CURRENCY_HUB_HOST:?CURRENCY_HUB_HOST is required}"
       OTS_HOST: "${OTS_HOST:?OTS_HOST is required}"
+      # host:port that ACME challenges the webroot cannot answer are passed to; empty on a
+      # host that relays nothing. See the :80 site in the Caddyfile.
+      ACME_RELAY_UPSTREAM: "${ACME_RELAY_UPSTREAM:-}"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - ./data:/data

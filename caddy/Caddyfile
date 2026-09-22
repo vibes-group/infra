@@ -107,6 +107,21 @@ https://{$CURRENCY_HUB_HOST}:8443 {
 
 # Share HTTP-01 validation with host services using certbot webroot.
 :80 {
+	# A host that relays another server's services can be asked to prove an address whose
+	# certificate that server holds. Caddy answers its own challenges before any route, and the
+	# webroot answers the host's; a token neither knows goes to ACME_RELAY_UPSTREAM. Unset,
+	# nothing is forwarded.
+	@relayed_acme {
+		path /.well-known/acme-challenge/*
+		not file {
+			root /srv/acme
+		}
+		expression {env.ACME_RELAY_UPSTREAM} != ""
+	}
+	handle @relayed_acme {
+		reverse_proxy {env.ACME_RELAY_UPSTREAM}
+	}
+
 	handle /.well-known/acme-challenge/* {
 		root * /srv/acme
 		file_server

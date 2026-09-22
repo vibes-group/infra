@@ -19,11 +19,10 @@ services:
       start_period: 10s
     ports:
       - "80:80"
-      - "127.0.0.1:8443:8443"
+      - "443:443"
+      # HTTP/3.
+      - "443:443/udp"
     environment:
-      # Caddy reads this from its own environment, so it has to be passed in; left out, the
-      # Caddyfile default would quietly outlive a change to the network.
-      VIBES_NET_SUBNET: "${VIBES_NET_SUBNET:-10.200.200.0/24}"
       VOICE_HUB_HOST: "${VOICE_HUB_HOST:?VOICE_HUB_HOST is required}"
       SOZVON_HUB_HOST: "${SOZVON_HUB_HOST:?SOZVON_HUB_HOST is required}"
       CURRENCY_HUB_HOST: "${CURRENCY_HUB_HOST:?CURRENCY_HUB_HOST is required}"

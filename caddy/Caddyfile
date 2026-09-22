@@ -1,10 +1,5 @@
 # Caddy serves browser TLS direct (Let's Encrypt). No CDN in front.
 # Common header set + cache rules reused per host via snippet.
-#
-# TLS is served on 8443, so the client address arrives in a PROXY header instead of on the
-# connection: the apps rate-limit per client address and log it, and need the real one. The
-# header is read only from the app network, which is where the connection is seen to come
-# from — a published port reaches a container through its bridge, never over loopback.
 {
 	# The admin API's one caller is this stack's health check, whose line every thirty seconds
 	# would be the whole log. Dropped from the default logger and taken back at ERROR, because a
@@ -18,19 +13,9 @@
 		level ERROR
 	}
 
-	# Caddy aims its own redirect at the port its TLS listener holds, which is not the port a
-	# browser dials here; the HTTP site below sends them to the right one.
+	# The HTTP site below owns port 80 — it also answers ACME for the host and its relays — so
+	# Caddy's own redirects stay out of its way.
 	auto_https disable_redirects
-	servers :8443 {
-		listener_wrappers {
-			proxy_protocol {
-				allow {$VIBES_NET_SUBNET:10.200.200.0/24}
-			}
-			tls
-		}
-		# HTTP/3 needs a UDP listener on the port the browser dials.
-		protocols h1 h2
-	}
 }
 
 (common_headers) {
@@ -41,15 +26,6 @@
 		Referrer-Policy "strict-origin-when-cross-origin"
 		-Server
 		-Via
-	}
-}
-
-(le_http01) {
-	# Port 80 carries the only challenge this deployment can answer.
-	tls {
-		issuer acme {
-			disable_tlsalpn_challenge
-		}
 	}
 }
 
@@ -64,8 +40,7 @@
 	header @html Cache-Control "no-cache"
 }
 
-https://{$VOICE_HUB_HOST}:8443 {
-	import le_http01
+{$VOICE_HUB_HOST} {
 	encode zstd gzip
 	import common_headers
 	header Permissions-Policy "microphone=(self), camera=(self), display-capture=(self), geolocation=()"
@@ -74,8 +49,7 @@ https://{$VOICE_HUB_HOST}:8443 {
 	reverse_proxy voice-hub-app:8080
 }
 
-https://{$SOZVON_HUB_HOST}:8443 {
-	import le_http01
+{$SOZVON_HUB_HOST} {
 	encode zstd gzip
 	import common_headers
 	header Permissions-Policy "microphone=(self), camera=(self), display-capture=(self), geolocation=()"
@@ -84,15 +58,13 @@ https://{$SOZVON_HUB_HOST}:8443 {
 	reverse_proxy sozvon-hub-app:8080
 }
 
-https://{$OTS_HOST}:8443 {
-	import le_http01
+{$OTS_HOST} {
 	encode zstd gzip
 	import common_headers
 	reverse_proxy ots-app:3000
 }
 
-https://{$CURRENCY_HUB_HOST}:8443 {
-	import le_http01
+{$CURRENCY_HUB_HOST} {
 	encode zstd gzip
 	import common_headers
 	header Content-Security-Policy "default-src 'self'; connect-src 'self' https:; script-src 'self'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
